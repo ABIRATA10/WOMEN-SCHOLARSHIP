@@ -1,0 +1,63 @@
+import csv
+import os
+
+csv_text = """id,scholarship_name,provider,provider_type,gender,category,state,income_limit,education_level,eligibility_text,deadline,link
+1,Post Matric Scholarship for SC Girls,National Scholarship Portal,Government,Female,SC,All,250000,UG/PG,"Female students of SC category studying post-matric",2026-03-31,https://scholarships.gov.in
+2,Post Matric Scholarship for ST Girls,National Scholarship Portal,Government,Female,ST,All,250000,UG/PG,"Female students of ST category studying post-matric",2026-03-31,https://scholarships.gov.in
+3,AICTE Pragati Scholarship for Girls,All India Council for Technical Education,Government,Female,All,All,800000,UG,"Girls pursuing technical diploma/degree in AICTE institutes",2026-03-10,https://dte.maharashtra.gov.in/pragati-scholarship-scheme/
+4,Kanyashree Prakalpa (Conditional Cash Transfer),Government of West Bengal,Government,Female,All,West Bengal,120000,School,"Girls of West Bengal for continued education and conditional cash transfer",2026-12-31,https://www.wbkanyashree.gov.in/
+5,Begum Hazrat Mahal National Scholarship,Ministry of Minority Affairs,Government,Female,Minority,All,200000,UG/PG,"Minority girl students with low family income",2026-04-15,https://scholarships.gov.in
+6,National Means-cum-Merit Scholarship (NMMS),Ministry of Education,Government,All,All,All,150000,School,"Merit & means scholarship for economically weaker students (girls eligible)",2026-01-31,https://scholarships.gov.in
+7,Kasturba Gandhi Scholarship for Girls,Ministry of Education,Government,Female,All,All,300000,School,"Girls from economically weaker sections studying in schools",2026-02-28,https://scholarships.gov.in
+8,UGC PG Scholarship for Women,University Grants Commission,Government,Female,All,All,NA,PG,"Women enrolled in postgraduate courses in recognized universities",2026-03-25,https://www.ugc.ac.in/
+9,Tata Trusts Women Higher Education Scholarship,Tata Trusts,Private,Female,All,All,400000,UG,"Women from low-income families pursuing undergraduate studies",2026-03-15,https://www.tatatrusts.org/
+10,L'Oréal India For Young Women in Science,L'Oréal India,Private,Female,All,All,600000,UG/PG,"Meritorious female students in science streams with financial constraints",2026-02-20,https://india.loreal.com/
+11,Reliance Foundation Education Scholarship,Reliance Foundation,Private,Female,All,All,500000,UG,"Meritorious girl students pursuing higher education",2026-03-18,https://www.ril.com/
+12,ONGC Scholarship (SC/ST Girls),Oil and Natural Gas Corporation,Government,Female,SC ST,All,200000,UG,"SC/ST female students with good academic record",2026-03-10,https://ongcindia.com/
+13,LIC Golden Jubilee Scholarship for Girls,Life Insurance Corporation,Government/Fund,Female,All,All,300000,UG,"Economically weaker female students pursuing degree courses",2026-03-05,https://licindia.in/
+14,Central Sector Scholarship for College Girls,Ministry of Education,Government,Female,All,All,800000,UG,"Meritorious girl students pursuing college education",2026-02-28,https://scholarships.gov.in
+15,Saksham (Differently Abled) Scholarship for Girls,AICTE/NSP,Government,Female,All,All,800000,UG/PG,"Differently abled girl students pursuing higher education",2026-03-30,https://scholarships.gov.in
+16,Kanyashree-Related Stipend (WB College Girls),Government of West Bengal,Government,Female,All,West Bengal,120000,UG,"Stipend support for college-going girls in West Bengal",2026-12-31,https://www.wbkanyashree.gov.in/
+17,Pragati (Maharashtra) Degree/Diploma Girls Scholarship,Directorate of Technical Education Maharashtra,Government,Female,All,Maharashtra,800000,UG,"Female students pursuing technical education in Maharashtra (Pragati)",2026-03-10,https://dte.maharashtra.gov.in/pragati-scholarship-scheme/
+18,Savitribai Phule Scholarship for Nomadic Girls,Maharashtra Government,Government,Female,VJNT/SBC,Maharashtra,NA,UG,"Encourage enrollment and reduce dropout of girl students from nomadic communities",2026-03-01,https://myscheme.gov.in
+19,Karnataka Sanchi Honnamma Scholarship,Dept. of Collegiate Education Karnataka,Government,Female,All,Karnataka,NA,UG,"Meritorious girl students admitted to first year undergraduate programmes",2026-03-31,https://dce.karnataka.gov.in/info-2/Student%2BScholarships/en
+20,Bhagyalakshmi Scheme (Karnataka),Government of Karnataka,Government,Female,All,Karnataka,NA,School,"Financial aid for female children to encourage education",2026-03-31,https://myscheme.gov.in
+21,Chief Minister Kanya Sumangala (Mukhyamantri) (Odisha),Govt. of Odisha,Government,Female,All,Odisha,200000,All,"State scheme supporting girl child education and incentives",2026-03-31,https://scholarship.odisha.gov.in
+22,Uttar Pradesh Kanya Sumangala Yojana,Government of Uttar Pradesh,Government,Female,All,Uttar Pradesh,300000,All,"Benefits and savings for girl child education in UP",2026-03-31,https://mksy.up.gov.in
+23,Tamil Nadu Pudhumai Penn Thittam (Girls Scheme),Government of Tamil Nadu,Government,Female,All,Tamil Nadu,250000,UG/PG,"Assistance to girl students (state-level schemes such as Pudhumai Penn)",2026-03-31,https://tndce.tn.gov.in/Home/scholarship
+24,Maharashtra Girls Free Education Scheme,DHE Maharashtra,Government,Female,All,Maharashtra,NA,UG/PG,"Girl's Free Education scheme and scholarships in Maharashtra",2026-08-31,https://dhepune.gov.in/girls-free-education/
+25,West Bengal State Merit Scholarship for Girls,West Bengal Government,Government,Female,All,West Bengal,NA,UG/PG,"Merit-based scholarship schemes available for girls in West Bengal",2026-03-31,https://wb.gov.in
+26,Kerala Women Scholarship (state & NGO mixes),Kerala State/NPOs,Government/Private,Female,All,Kerala,NA,UG/PG,"State & NGO scholarships for girl students from Kerala",2026-03-30,https://www.education.kerala.gov.in
+27,Saksham Scholarship (for Specially Abled) - national,Ministry of Social Justice/NSP,Government,Female,All,All,800000,UG/PG,"Support for specially-abled women students across India",2026-03-30,https://scholarships.gov.in
+28,Aditya Birla Scholarship for Women,Aditya Birla Group,Private,Female,All,All,NA,UG/PG,"Meritorious women students enrolled in premier institutions",2026-02-10,https://www.adityabirla.com/
+29,Mahindra All India Talent Scholarship (Girls),Mahindra Foundation,Private,Female,All,All,300000,UG,"Girls from economically weak background pursuing diploma or degree",2026-02-15,https://www.mahindra.com/
+30,Fair & Lovely (now Glow & Lovely) Foundation Scholarship,Glow & Lovely Foundation,Private,Female,All,All,600000,UG/PG,"Women students pursuing education after class 12",2026-03-20,https://www.gloandlovely.in
+31,SBI Youth for India / Scholarship related women programs,State Bank of India Foundation,Private,Female,All,All,NA,UG/PG,"Scholarship and fellowship programs supporting rural women students",2026-04-30,https://www.sbi.co.in/
+32,Tata Capital Pankh Scholarship (girls),Tata Capital Foundation,Private,Female,All,All,NA,UG,"Scholarships specifically for girls to continue higher education",2026-04-15,https://www.tatacapital.com/
+33,HPCL Girls Scholarship,HPCL CSR,Private,Female,All,All,NA,UG,"Corporate CSR scholarships for girl students by HPCL",2026-03-31,https://www.hindustanpetroleum.com/
+34,ONGC Scholarship (Women Professional Courses),ONGC CSR/NSP,Government/Private,Female,All,All,NA,UG/PG,"Support for girls pursuing professional and technical education",2026-03-31,https://www.ongcindia.com/
+35,Reliance Foundation - Girl Child Education Program,Reliance Foundation,Private,Female,All,All,NA,UG,"Support and scholarships for girls under Reliance CSR",2026-03-18,https://www.ril.com/
+36,Central Sector Scheme of National Fellowship for SC Women,University Grants Commission,Government,Female,SC,All,NA,PG,"Fellowship support for SC women pursuing higher research degrees",2026-03-31,https://www.ugc.ac.in/
+37,State Merit Scholarship (Punjab) for Girls,Punjab Government,Government,Female,All,Punjab,NA,UG/PG,"State merit scholarships and schemes for girls",2026-03-31,https://punjab.gov.in
+38,Assam State Girl Child Scholarships,Assam Government,Government,Female,All,Assam,NA,School/UG,"Various state schemes supporting girls' education in Assam",2026-03-31,https://assam.gov.in
+39,North East Region (Ishan Uday) Special Scholarships (girls),Ministry of Education/NEC,Government,Female,NER states,All,UG/PG,"Scholarships for students (including girls) from North East Region",2026-03-31,https://scholarships.gov.in
+40,CBSE Merit Scholarship for Girls,Central Board of Secondary Education,Government,Female,All,All,NA,UG,"CBSE merit scholarship schemes applicable to girl students",2026-03-20,https://www.cbse.gov.in
+41,Bhagyashree/State Girl Scholarship (Rajasthan),Rajasthan Government,Government,Female,All,Rajasthan,NA,School/UG,"State-level scholarships and schemes for girls in Rajasthan",2026-03-31,https://rajasthan.gov.in
+42,Shramik Kanya/State Education Grants (Chhattisgarh),Chhattisgarh Government,Government,Female,All,Chhattisgarh,NA,School/UG,"State grants and scholarships encouraging girl education",2026-03-31,https://chhattisgarh.nic.in
+43,Vidya Lakshmi/Bank-linked Girls Scholarship Programs,Various Banks/NGOs,Private,Female,All,All,NA,UG,"Scholarships and loan-linked scholarships for girls by banking foundations",2026-05-31,https://www.vidyalakshmi.co.in
+44,TMF (Teacher/Medical Women Fellowship) State Scholarships,State Health/Education Funds,Government/Fund,Female,All,All,NA,PG/Professional,"State-specific scholarships for women in medical/teaching professions",2026-06-30,https://scholarships.gov.in
+45,Indira Gandhi Scholarship for Single Girl Child,Ministry of Women & Child Dev / UGC,Government,Female,All,All,NA,PG,"Scholarship for single girl child pursuing PG",2026-03-30,https://scholarships.gov.in
+46,Women in STEM Scholarship (Private Foundations),Multiple Foundations,Private,Female,All,All,NA,UG/PG,"Private foundations offering targeted STEM scholarships for women",2026-04-30,https://buddy4study.com/scholarships/girls
+47,State SC/ST Post-Matric Scholarships (various states),State Scholarship Portals,Government,Female,SC ST,Various,200000,UG,"State-level post-matric scholarships for SC/ST girl students (links per state portal)",2026-03-31,https://scholarships.gov.in
+48,Minority Girls Scholarship (State-wise),State Minority Welfare Boards,Government,Female,Minority,Various,200000,UG/PG,"State minority girl scholarship programs (apply via state portals/NSP)",2026-04-30,https://scholarships.gov.in
+49,Corporate Women Scholarship Consortium (CSR list examples),Various Corporates,Private,Female,All,All,NA,UG/PG,"Collection of corporate scholarships for women (see corporate CSR pages)",2026-05-31,https://collegesimplified.in
+50,Local NGO Girls Scholarship (State NGO lists),Various NGOs,Nonprofit,Female,All,All,NA,UG/PG,"Local NGO scholarships for girls (links vary by state NGO pages & aggregators)",2026-05-31,https://buddy4study.com/scholarships/girls
+"""
+
+def create_csv():
+    with open('scholarships.csv', 'w', newline='', encoding='utf-8') as f:
+        f.write(csv_text.strip())
+    print("scholarships.csv created successfully.")
+
+if __name__ == "__main__":
+    create_csv()

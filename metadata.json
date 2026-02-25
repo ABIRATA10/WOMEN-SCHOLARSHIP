@@ -1,0 +1,5 @@
+{
+  "name": "FemFund: AI Scholarship Recommender for Women",
+  "description": "An AI-powered platform that matches eligible women students with government and private scholarships, featuring Google OAuth authentication and real-time AI recommendations.",
+  "requestFramePermissions": []
+}

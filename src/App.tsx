@@ -26,6 +26,7 @@ export default function App() {
   });
   const [isLoading, setIsLoading] = React.useState(false);
   const [filter, setFilter] = React.useState<'All' | 'Government' | 'Private'>('All');
+  const [scopeFilter, setScopeFilter] = React.useState<'All' | 'State' | 'National' | 'Global'>('All');
   const [communityOnly, setCommunityOnly] = React.useState(false);
   const [searchQuery, setSearchQuery] = React.useState('');
   const [view, setView] = React.useState<'Landing' | 'Results' | 'Profile' | 'Dashboard' | 'Applications' | 'Saved'>(() => {
@@ -42,10 +43,16 @@ export default function App() {
     return saved ? JSON.parse(saved) : [];
   });
   const [searchHistory, setSearchHistory] = React.useState<string[]>(() => {
-    const saved = localStorage.getItem('scholar_search_history');
-    return saved ? JSON.parse(saved) : [];
+    try {
+      const saved = localStorage.getItem('scholar_search_history');
+      return saved ? JSON.parse(saved) : [];
+    } catch (e) {
+      console.error("Failed to load search history", e);
+      return [];
+    }
   });
   const [isAssistantOpen, setIsAssistantOpen] = React.useState(false);
+  const [showLogoutConfirm, setShowLogoutConfirm] = React.useState(false);
 
   // Persist data
   React.useEffect(() => {
@@ -120,12 +127,23 @@ export default function App() {
   const filteredResults = results.filter(r => {
     const s = r.scholarship;
     const matchesFilter = filter === 'All' || s.category === filter;
+    const matchesScope = scopeFilter === 'All' || s.scope === scopeFilter;
     const matchesCommunity = !communityOnly || (s.targetCommunity && s.targetCommunity.toLowerCase() !== 'general' && s.targetCommunity.toLowerCase() !== 'none');
     const matchesSearch = s.title.toLowerCase().includes(searchQuery.toLowerCase()) || 
                          s.provider.toLowerCase().includes(searchQuery.toLowerCase()) ||
                          (s.targetCommunity && s.targetCommunity.toLowerCase().includes(searchQuery.toLowerCase()));
-    return matchesFilter && matchesCommunity && matchesSearch;
+    return matchesFilter && matchesScope && matchesCommunity && matchesSearch;
   }).sort((a, b) => {
+    // Primary sort: Scope (State > National > Global)
+    const scopePriority = { 'State': 1, 'National': 2, 'Global': 3 };
+    const scopeA = scopePriority[a.scholarship.scope] || 4;
+    const scopeB = scopePriority[b.scholarship.scope] || 4;
+    
+    if (scopeA !== scopeB) {
+      return scopeA - scopeB;
+    }
+
+    // Secondary sort: Match Score or Deadline
     if (sortBy === 'Match') {
       return b.match.matchScore - a.match.matchScore;
     }
@@ -148,6 +166,17 @@ export default function App() {
       }
       return [...prev, id];
     });
+  };
+
+  const handleLogout = () => {
+    localStorage.removeItem('scholar_current_user');
+    localStorage.removeItem('scholar_profile');
+    localStorage.removeItem('scholar_results');
+    setCurrentUser(null);
+    setProfile(null); 
+    setResults([]); 
+    setView('Landing'); 
+    setShowLogoutConfirm(false);
   };
 
   if (!currentUser) {
@@ -223,17 +252,7 @@ export default function App() {
                 <User size={14} /> {view === 'Profile' ? 'Back to Results' : 'My Profile'}
               </button>
               <button 
-                onClick={() => { 
-                  if (window.confirm('Are you sure you want to logout?')) {
-                    localStorage.removeItem('scholar_current_user');
-                    localStorage.removeItem('scholar_profile');
-                    localStorage.removeItem('scholar_results');
-                    setCurrentUser(null);
-                    setProfile(null); 
-                    setResults([]); 
-                    setView('Landing'); 
-                  }
-                }}
+                onClick={() => setShowLogoutConfirm(true)}
                 className="flex items-center gap-2 px-6 py-2.5 bg-slate-900 hover:bg-black text-white rounded-full text-xs font-black uppercase tracking-widest transition-all shadow-lg shadow-slate-200"
               >
                 <LogOut size={14} /> Logout
@@ -492,6 +511,22 @@ export default function App() {
                     </div>
 
                     <div className="flex items-center gap-2 p-1 bg-slate-50 rounded-2xl border border-slate-100">
+                      {(['All', 'State', 'National', 'Global'] as const).map((scope) => (
+                        <button
+                          key={scope}
+                          onClick={() => setScopeFilter(scope)}
+                          className={`px-4 py-2.5 rounded-xl text-[10px] font-black uppercase tracking-widest transition-all ${
+                            scopeFilter === scope 
+                              ? 'bg-white text-indigo-600 shadow-sm' 
+                              : 'text-slate-400 hover:text-slate-600'
+                          }`}
+                        >
+                          {scope}
+                        </button>
+                      ))}
+                    </div>
+
+                    <div className="flex items-center gap-2 p-1 bg-slate-50 rounded-2xl border border-slate-100">
                       <select
                         value={sortBy}
                         onChange={(e) => setSortBy(e.target.value as any)}
@@ -578,6 +613,11 @@ export default function App() {
                             Show All Categories
                           </button>
                         )}
+                        {scopeFilter !== 'All' && (
+                          <button onClick={() => setScopeFilter('All')} className="px-4 py-2 bg-indigo-50 text-indigo-600 rounded-full text-[10px] font-black uppercase tracking-widest border border-indigo-100 hover:bg-indigo-100 transition-colors">
+                            Show All Scopes
+                          </button>
+                        )}
                         {communityOnly && (
                           <button onClick={() => setCommunityOnly(false)} className="px-4 py-2 bg-rose-50 text-rose-600 rounded-full text-[10px] font-black uppercase tracking-widest border border-rose-100 hover:bg-rose-100 transition-colors">
                             Disable Community Filter
@@ -608,6 +648,48 @@ export default function App() {
       )}
 
       <SupportChatbot />
+
+      {/* Logout Confirmation Modal */}
+      <AnimatePresence>
+        {showLogoutConfirm && (
+          <div className="fixed inset-0 z-[200] flex items-center justify-center p-6">
+            <motion.div
+              initial={{ opacity: 0 }}
+              animate={{ opacity: 1 }}
+              exit={{ opacity: 0 }}
+              onClick={() => setShowLogoutConfirm(false)}
+              className="absolute inset-0 bg-slate-900/60 backdrop-blur-sm"
+            />
+            <motion.div
+              initial={{ opacity: 0, scale: 0.9, y: 20 }}
+              animate={{ opacity: 1, scale: 1, y: 0 }}
+              exit={{ opacity: 0, scale: 0.9, y: 20 }}
+              className="relative w-full max-w-md bg-white rounded-[2.5rem] p-10 shadow-2xl text-center"
+            >
+              <div className="w-20 h-20 bg-rose-50 text-rose-500 rounded-3xl flex items-center justify-center mx-auto mb-6">
+                <LogOut size={40} />
+              </div>
+              <h3 className="text-2xl font-black text-slate-900 mb-2">Confirm Logout</h3>
+              <p className="text-slate-500 font-medium mb-10">Are you sure you want to logout? You'll need to sign in again to access your matches.</p>
+              
+              <div className="flex flex-col gap-3">
+                <button
+                  onClick={handleLogout}
+                  className="w-full py-4 bg-rose-600 hover:bg-rose-700 text-white font-black rounded-2xl transition-all shadow-xl shadow-rose-100 uppercase tracking-widest text-xs"
+                >
+                  Yes, Logout
+                </button>
+                <button
+                  onClick={() => setShowLogoutConfirm(false)}
+                  className="w-full py-4 bg-slate-50 hover:bg-slate-100 text-slate-600 font-black rounded-2xl transition-all uppercase tracking-widest text-xs"
+                >
+                  Cancel
+                </button>
+              </div>
+            </motion.div>
+          </div>
+        )}
+      </AnimatePresence>
 
       <footer className="max-w-7xl mx-auto px-6 py-12 border-t border-slate-100">
         <div className="flex flex-col md:flex-row justify-between items-center gap-8">

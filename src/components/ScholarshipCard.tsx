@@ -76,6 +76,13 @@ export const ScholarshipCard: React.FC<ScholarshipCardProps> = ({ scholarship, m
           <span className={`px-4 py-1.5 rounded-full text-[10px] font-black uppercase tracking-widest border ${categoryStyles}`}>
             {scholarship.category}
           </span>
+          <span className={`px-4 py-1.5 rounded-full text-[10px] font-black uppercase tracking-widest border ${
+            scholarship.scope === 'State' ? 'bg-indigo-50 text-indigo-600 border-indigo-100' :
+            scholarship.scope === 'National' ? 'bg-blue-50 text-blue-600 border-blue-100' :
+            'bg-slate-50 text-slate-600 border-slate-100'
+          }`}>
+            {scholarship.scope}
+          </span>
           {isPastDeadline ? (
             <span className="px-4 py-1.5 rounded-full text-[10px] font-black uppercase tracking-widest bg-slate-100 text-slate-500 border border-slate-200 flex items-center gap-1">
               <AlertCircle size={10} /> Past Deadline
@@ -103,10 +110,19 @@ export const ScholarshipCard: React.FC<ScholarshipCardProps> = ({ scholarship, m
         </div>
         {match && (
           <div className="flex flex-col items-end gap-2">
-            <span className={`px-4 py-1.5 rounded-full text-[10px] font-black uppercase tracking-widest flex items-center gap-1.5 ${getMatchStyles(match.matchScore)}`}>
-              {match.matchScore >= 80 ? <CheckCircle2 size={12} /> : <AlertCircle size={12} />}
-              {match.matchScore}% Match
-            </span>
+            <div className="flex flex-col items-end">
+              <span className={`px-4 py-1.5 rounded-full text-[10px] font-black uppercase tracking-widest flex items-center gap-1.5 ${getMatchStyles(match.matchScore)}`}>
+                {match.matchScore >= 80 ? <CheckCircle2 size={12} /> : match.matchScore >= 50 ? <Info size={12} /> : <AlertCircle size={12} />}
+                {match.matchScore}% Match
+              </span>
+              <span className={`text-[8px] font-black uppercase tracking-tighter mt-1 ${
+                match.matchScore >= 80 ? 'text-emerald-600' : 
+                match.matchScore >= 50 ? 'text-amber-600' : 'text-rose-600'
+              }`}>
+                {match.matchScore >= 80 ? 'Excellent Match' : 
+                 match.matchScore >= 50 ? 'Good Match' : 'Potential Match'}
+              </span>
+            </div>
             <div className="w-24 h-1.5 bg-slate-100 rounded-full overflow-hidden border border-slate-200/50">
               <motion.div 
                 initial={{ width: 0 }}
@@ -135,8 +151,13 @@ export const ScholarshipCard: React.FC<ScholarshipCardProps> = ({ scholarship, m
           <div className="flex items-center gap-3 text-lg text-slate-900 font-black">
             <Award size={18} className="text-amber-500" />
             <span>{scholarship.amount}</span>
+            {scholarship.scope === 'Global' && match?.localCurrencyAmount && match.localCurrencyAmount !== scholarship.amount && (
+              <span className="text-sm text-slate-400 font-medium">
+                (Approx. {match.localCurrencyAmount})
+              </span>
+            )}
           </div>
-          {match?.localCurrencyAmount && match.localCurrencyAmount !== scholarship.amount && (
+          {scholarship.scope !== 'Global' && match?.localCurrencyAmount && match.localCurrencyAmount !== scholarship.amount && (
             <div className="text-xs text-emerald-600 font-bold ml-7 bg-emerald-50 px-2 py-0.5 rounded-md inline-block w-fit border border-emerald-100">
               Local: {match.localCurrencyAmount}
             </div>
@@ -241,7 +262,15 @@ export const ScholarshipCard: React.FC<ScholarshipCardProps> = ({ scholarship, m
                 
                 {match && (
                   <div className="pt-2 border-t border-slate-200/50">
-                    <p className="text-[10px] text-emerald-500 font-black uppercase tracking-widest mb-1">AI Match Analysis</p>
+                    <div className="flex items-center justify-between mb-2">
+                      <p className="text-[10px] text-emerald-500 font-black uppercase tracking-widest">AI Match Analysis</p>
+                      <span className={`text-[9px] font-black uppercase px-2 py-0.5 rounded-md ${
+                        match.matchScore >= 80 ? 'bg-emerald-50 text-emerald-600' : 
+                        match.matchScore >= 50 ? 'bg-amber-50 text-amber-600' : 'bg-rose-50 text-rose-600'
+                      }`}>
+                        {match.matchScore >= 80 ? 'Excellent' : match.matchScore >= 50 ? 'Good' : 'Fair'} Match
+                      </span>
+                    </div>
                     <p className="text-xs text-slate-600 italic leading-relaxed font-medium">
                       "{match.reasoning}"
                     </p>

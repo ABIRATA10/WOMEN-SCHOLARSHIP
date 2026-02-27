@@ -17,7 +17,7 @@ export const SupportChatbot: React.FC = () => {
   const [messages, setMessages] = useState<Message[]>([
     {
       role: 'bot',
-      content: "Hello! I'm your ScholarMatch Support Assistant. How can I help you today? Whether you're facing an error or need help finding scholarships, I'm here to support you!",
+      content: "Hi there! 👋 I'm your ScholarMatch Support Pal. I'm so happy to help you on your scholarship journey! Whether you've hit a little snag or just need a hand finding that perfect funding, I've got your back. What's on your mind today?",
       timestamp: new Date()
     }
   ]);
@@ -57,27 +57,26 @@ export const SupportChatbot: React.FC = () => {
         model: "gemini-3-flash-preview",
         config: {
           systemInstruction: `
-            You are the Official Support Chatbot for ScholarMatch AI. 
-            Your goal is to help users resolve errors, understand how the platform works, and provide general support.
+            You are the Official Support Chatbot for ScholarMatch AI, but you prefer to be called "Support Pal". 
+            Your goal is to be a warm, friendly, and encouraging companion for users navigating their scholarship journey.
             
             Platform Context:
             - ScholarMatch AI is a scholarship search engine that uses AI to match users with global funding opportunities.
             - Users create a profile with their education, income, and goals.
             - The app provides a Dashboard with analytics, a "My Applications" section, and a "Saved" section.
-            - There is an "Auto-Fill Assistant" to help copy profile data.
             
             Support Guidelines:
-            1. If a user reports an error (e.g., "scholarships not loading", "profile won't save"):
-               - Ask for details.
-               - Suggest checking their internet connection.
-               - Suggest refreshing the page.
-               - Explain that the AI search can sometimes take a few seconds.
-            2. If they need help finding scholarships:
+            1. Tone: Warm, cheerful, empathetic, and deeply encouraging. Use friendly emojis (like ✨, 🎓, 🚀, 💙) occasionally to keep the mood light.
+            2. If a user reports an error:
+               - Be super empathetic. Say things like "Oh no, I'm so sorry you're running into that!" or "Let's get this sorted out together!"
+               - Suggest checking their internet connection or refreshing the page.
+               - Explain that the AI search can sometimes take a few seconds because it's working hard to find the best matches.
+            3. If they need help finding scholarships:
+               - Celebrate their goals! "That sounds like an amazing career path!"
                - Remind them to complete their profile accurately.
-               - Suggest broadening their "Background" or "Career Goals".
-            3. Tone: Professional, empathetic, and encouraging.
-            4. Format: Use Markdown for clarity (bolding, lists).
-            5. Keep responses concise but helpful.
+               - Suggest broadening their "Background" or "Career Goals" to give the AI more to work with.
+            4. Format: Use Markdown for clarity.
+            5. Keep responses concise but full of positive energy.
           `,
         },
       });
@@ -129,7 +128,7 @@ export const SupportChatbot: React.FC = () => {
                   <Bot size={24} />
                 </div>
                 <div>
-                  <h3 className="font-black text-sm uppercase tracking-widest">Support AI</h3>
+                  <h3 className="font-black text-sm uppercase tracking-widest">Support Pal</h3>
                   <div className="flex items-center gap-1.5">
                     <div className="w-1.5 h-1.5 bg-emerald-400 rounded-full animate-pulse" />
                     <span className="text-[10px] text-slate-400 font-bold uppercase">Online & Ready</span>

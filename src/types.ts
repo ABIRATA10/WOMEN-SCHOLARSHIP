@@ -3,6 +3,7 @@ export interface User {
   email: string;
   password?: string;
   fullName: string;
+  phoneNumber?: string;
 }
 
 export interface UserProfile {
@@ -36,6 +37,7 @@ export interface Scholarship {
   category: 'Government' | 'Private';
   link: string;
   targetCommunity?: string; // e.g., "OBC", "SC/ST", "Minority", "Women in STEM"
+  scope: 'State' | 'National' | 'Global';
 }
 
 export interface MatchResult {

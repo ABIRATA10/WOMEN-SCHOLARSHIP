@@ -33,12 +33,13 @@ export async function findScholarships(
        - A unique ID
        - Title
        - Provider
-       - Amount (in original currency)
-       - Local Currency Amount (converted to ${userProfile.country} currency)
+       - Amount (in original currency. If exact amount is unknown, provide a well-researched approximation, e.g., "Approx. $5,000")
+       - Local Currency Amount (converted to ${userProfile.country} currency. If exact conversion is unknown, provide an approximation)
        - Deadline (Be specific: e.g., "Dec 15, 2026", "Upcoming - Opens July", or "Rolling")
        - Detailed Eligibility Criteria
        - A brief description
        - Category (Government or Private)
+       - Scope (State, National, or Global - State means specific to ${userProfile.state}, National means specific to ${userProfile.country}, Global means international)
        - A direct application link (MANDATORY: Ensure this link is accurate and active. If a specific application page is not found, provide the provider's official scholarship portal or main website).
        - A match score (0-100)
        - AI reasoning for the match
@@ -69,10 +70,11 @@ export async function findScholarships(
                   eligibilityCriteria: { type: Type.STRING },
                   description: { type: Type.STRING },
                   category: { type: Type.STRING },
+                  scope: { type: Type.STRING, description: "One of: 'State', 'National', 'Global'" },
                   link: { type: Type.STRING },
                   targetCommunity: { type: Type.STRING, description: "Specific caste or community this scholarship targets, if any." },
                 },
-                required: ["id", "title", "provider", "amount", "deadline", "eligibilityCriteria", "description", "category", "link"],
+                required: ["id", "title", "provider", "amount", "deadline", "eligibilityCriteria", "description", "category", "link", "scope"],
               },
               match: {
                 type: Type.OBJECT,

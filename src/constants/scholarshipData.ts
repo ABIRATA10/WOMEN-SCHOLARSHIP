@@ -49,4 +49,14 @@ export const LOCAL_SCHOLARSHIP_DATA = `id,scholarship_name,provider,provider_typ
 48,Minority Girls Scholarship (State-wise),State Minority Welfare Boards,Government,Female,Minority,Various,200000,UG/PG,"State minority girl scholarship programs (apply via state portals/NSP)",2026-04-30,https://scholarships.gov.in
 49,Corporate Women Scholarship Consortium (CSR list examples),Various Corporates,Private,Female,All,All,NA,UG/PG,"Collection of corporate scholarships for women (see corporate CSR pages)",2026-05-31,https://collegesimplified.in
 50,Local NGO Girls Scholarship (State NGO lists),Various NGOs,Nonprofit,Female,All,All,NA,UG/PG,"Local NGO scholarships for girls (links vary by state NGO pages & aggregators)",2026-05-31,https://buddy4study.com/scholarships/girls
+51,Google Generation Scholarship (APAC),Google,Private,Female,All,All,NA,UG,"Women in computer science or related technical fields",2026-05-15,https://buildyourfuture.withgoogle.com/scholarships/generation-google-scholarship-apac
+52,HDFC Bank Parivartan's ECSS Programme,HDFC Bank,Private,All,All,All,250000,School/UG/PG,"Students from COVID-affected or low-income families",2026-09-30,https://www.hdfcbank.com
+53,Fulbright-Nehru Master’s Fellowships,USIEF,Government,All,All,All,NA,PG,"Outstanding Indians to pursue master's degrees in the US",2026-05-15,https://www.usief.org.in
+54,Sitaram Jindal Foundation Scholarship,Sitaram Jindal Foundation,NGO,All,All,All,250000,School/UG/PG,"Merit-cum-means scholarship for various courses",2026-12-31,https://www.sitaramjindalfoundation.org
+55,Kotak Kanya Scholarship,Kotak Education Foundation,Private,Female,All,All,600000,UG,"Meritorious girls from low-income families for professional courses",2026-09-30,https://www.kotak.com
+56,L'Oréal India For Young Women In Science Scholarship,L'Oréal India,Private,Female,All,All,600000,UG,"For young women who have passed class 12 and wish to pursue science",2026-10-15,https://www.loreal.com/en/india
+57,Glow & Lovely Careers Scholarship,Glow & Lovely Foundation,Private,Female,All,All,600000,UG/PG,"Empowering women to pursue higher education and vocational training",2026-12-15,https://www.glowandlovelycareers.in
+58,National Overseas Scholarship for SC/ST,Ministry of Social Justice & Empowerment,Government,All,SC ST,All,800000,PG/PhD,"Financial assistance for low-income students from marginalized communities to study abroad",2026-03-31,https://nosmsje.gov.in
+59,Adobe Research Women-in-Technology Scholarship,Adobe,Private,Female,All,All,NA,UG/PG,"Recognizing outstanding female students in computer science",2026-11-01,https://research.adobe.com/scholarship
+60,Legrand Empowerment Scholarship,Legrand India,Private,Female,All,All,500000,UG,"Supporting girl students for engineering and architecture courses",2026-08-31,https://www.legrand.co.in
 `;

@@ -1,13 +1,12 @@
 import { GoogleGenAI, Type } from "@google/genai";
-import { UserProfile, Scholarship, MatchResult } from "../types";
+import { UserProfile, Scholarship, MatchResult, ScholarshipMatch } from "../types";
 import { LOCAL_SCHOLARSHIP_DATA } from "../constants/scholarshipData";
 
-const ai = new GoogleGenAI({ apiKey: process.env.GEMINI_API_KEY || "" });
-
-export interface ScholarshipMatch {
-  scholarship: Scholarship;
-  match: MatchResult;
+const apiKey = process.env.GEMINI_API_KEY || "";
+if (!apiKey) {
+  console.error("GEMINI_API_KEY is missing. Please set it in your environment variables.");
 }
+const ai = new GoogleGenAI({ apiKey });
 
 export async function findScholarships(
   userProfile: UserProfile
@@ -29,6 +28,7 @@ export async function findScholarships(
        - Scholarships specifically for the user's gender (${userProfile.gender}), year of study (${userProfile.yearOfStudy}), background, or field of study.
        - Local opportunities in ${userProfile.country} and ${userProfile.state}.
        - Global opportunities (USA, UK, Europe, etc.) that accept international students from ${userProfile.country}.
+       - If the user has set a profile completion deadline (${userProfile.profileDeadline}), prioritize scholarships with deadlines that align with or follow this date, ensuring the user has enough time to apply after completing their profile.
     3. For each scholarship found, provide:
        - A unique ID
        - Title
@@ -39,7 +39,7 @@ export async function findScholarships(
        - Detailed Eligibility Criteria
        - A brief description
        - Category (Government or Private)
-       - A direct application link
+       - A direct application link (MANDATORY: Ensure this link is accurate and active. If a specific application page is not found, provide the provider's official scholarship portal or main website).
        - A match score (0-100)
        - AI reasoning for the match
     

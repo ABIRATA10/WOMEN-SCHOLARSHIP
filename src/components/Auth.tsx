@@ -53,18 +53,22 @@ export const Auth: React.FC<AuthProps> = ({ onLogin }) => {
       <div className="absolute bottom-[-10%] right-[-10%] w-[40%] h-[40%] bg-rose-200/20 rounded-full blur-[120px] animate-pulse" style={{ animationDelay: '2s' }} />
 
       <motion.div 
-        initial={{ opacity: 0, y: 20 }}
-        animate={{ opacity: 1, y: 0 }}
-        className="w-full max-w-[480px] bg-white rounded-[3rem] p-10 shadow-2xl shadow-slate-200/60 border border-slate-50 relative z-10"
+        initial={{ opacity: 0, y: 20, scale: 0.95 }}
+        animate={{ opacity: 1, y: 0, scale: 1 }}
+        className="w-full max-w-[480px] bg-white/90 backdrop-blur-2xl rounded-[3rem] p-10 shadow-2xl shadow-indigo-100/50 border border-white relative z-10"
       >
         <div className="text-center mb-10">
-          <div className="w-16 h-16 bg-gradient-to-br from-indigo-600 to-violet-600 rounded-2xl flex items-center justify-center shadow-xl shadow-indigo-200 mx-auto mb-6">
-            <Sparkles className="text-white" size={32} />
-          </div>
-          <h2 className="text-3xl font-black text-slate-900 tracking-tight mb-2">
-            {isLogin ? 'Welcome' : 'Create Account'}
+          <motion.div 
+            initial={{ rotate: -10 }}
+            animate={{ rotate: 0 }}
+            className="w-20 h-20 bg-gradient-to-br from-indigo-600 to-violet-600 rounded-[2rem] flex items-center justify-center shadow-2xl shadow-indigo-200 mx-auto mb-8"
+          >
+            <Sparkles className="text-white" size={40} />
+          </motion.div>
+          <h2 className="text-4xl font-black text-slate-900 tracking-tight mb-3">
+            {isLogin ? 'Welcome Back' : 'Get Started'}
           </h2>
-          <p className="text-slate-400 font-medium">
+          <p className="text-slate-500 font-medium">
             {isLogin ? 'Sign in to access your scholarship matches' : 'Join ScholarMatch AI to find your funding'}
           </p>
         </div>

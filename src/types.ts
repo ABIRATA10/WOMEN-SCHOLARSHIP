@@ -22,6 +22,7 @@ export interface UserProfile {
   incomeBracket: string;
   background: string; // e.g., "Single mother", "First-generation student", "STEM enthusiast"
   careerGoals: string;
+  profileDeadline?: string;
 }
 
 export interface Scholarship {
@@ -42,4 +43,9 @@ export interface MatchResult {
   matchScore: number; // 0 to 100
   reasoning: string;
   localCurrencyAmount?: string; // Converted amount based on user location
+}
+
+export interface ScholarshipMatch {
+  scholarship: Scholarship;
+  match: MatchResult;
 }

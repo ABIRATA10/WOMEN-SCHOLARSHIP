@@ -27,6 +27,7 @@ export const ProfileForm: React.FC<ProfileFormProps> = ({ onSubmit, isLoading, i
     incomeBracket: '',
     background: '',
     careerGoals: '',
+    profileDeadline: '',
   });
 
   const [isFetchingAddress, setIsFetchingAddress] = React.useState(false);
@@ -395,6 +396,22 @@ export const ProfileForm: React.FC<ProfileFormProps> = ({ onSubmit, isLoading, i
               onChange={handleChange}
               className={inputClasses}
             />
+          </div>
+
+          <div className="space-y-1">
+            <label className={labelClasses('text-rose-500')}>
+              Profile Completion Deadline
+            </label>
+            <input
+              type="date"
+              name="profileDeadline"
+              value={formData.profileDeadline}
+              onChange={handleChange}
+              className={inputClasses}
+            />
+            <p className="text-[9px] text-slate-400 font-medium italic">
+              Setting a deadline helps prioritize your scholarship search.
+            </p>
           </div>
         </div>
       </div>

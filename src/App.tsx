@@ -2,9 +2,13 @@ import React from 'react';
 import { ProfileForm } from './components/ProfileForm';
 import { ScholarshipCard } from './components/ScholarshipCard';
 import { Auth } from './components/Auth';
-import { UserProfile, Scholarship, MatchResult, User as UserType } from './types';
-import { findScholarships, ScholarshipMatch } from './services/gemini';
-import { Sparkles, GraduationCap, Filter, Search, ArrowLeft, Globe, MapPin, User, LogOut } from 'lucide-react';
+import { ApplicationAssistant } from './components/ApplicationAssistant';
+import { Dashboard } from './components/Dashboard';
+import { SupportChatbot } from './components/SupportChatbot';
+import { NotificationManager } from './components/NotificationManager';
+import { UserProfile, Scholarship, MatchResult, User as UserType, ScholarshipMatch } from './types';
+import { findScholarships } from './services/gemini';
+import { Sparkles, GraduationCap, Filter, Search, ArrowLeft, Globe, MapPin, User, LogOut, LayoutDashboard, BookmarkCheck, Heart, Bot } from 'lucide-react';
 import { motion, AnimatePresence } from 'motion/react';
 
 export default function App() {
@@ -24,11 +28,24 @@ export default function App() {
   const [filter, setFilter] = React.useState<'All' | 'Government' | 'Private'>('All');
   const [communityOnly, setCommunityOnly] = React.useState(false);
   const [searchQuery, setSearchQuery] = React.useState('');
-  const [view, setView] = React.useState<'Landing' | 'Results' | 'Profile'>(() => {
+  const [view, setView] = React.useState<'Landing' | 'Results' | 'Profile' | 'Dashboard' | 'Applications' | 'Saved'>(() => {
     const saved = localStorage.getItem('scholar_profile');
     return saved ? 'Results' : 'Landing';
   });
   const [sortBy, setSortBy] = React.useState<'Match' | 'DeadlineAsc' | 'DeadlineDesc'>('Match');
+  const [appliedIds, setAppliedIds] = React.useState<string[]>(() => {
+    const saved = localStorage.getItem('scholar_applied_ids');
+    return saved ? JSON.parse(saved) : [];
+  });
+  const [savedIds, setSavedIds] = React.useState<string[]>(() => {
+    const saved = localStorage.getItem('scholar_saved_ids');
+    return saved ? JSON.parse(saved) : [];
+  });
+  const [searchHistory, setSearchHistory] = React.useState<string[]>(() => {
+    const saved = localStorage.getItem('scholar_search_history');
+    return saved ? JSON.parse(saved) : [];
+  });
+  const [isAssistantOpen, setIsAssistantOpen] = React.useState(false);
 
   // Persist data
   React.useEffect(() => {
@@ -54,6 +71,30 @@ export default function App() {
       localStorage.removeItem('scholar_results');
     }
   }, [results]);
+
+  React.useEffect(() => {
+    localStorage.setItem('scholar_applied_ids', JSON.stringify(appliedIds));
+  }, [appliedIds]);
+
+  React.useEffect(() => {
+    localStorage.setItem('scholar_saved_ids', JSON.stringify(savedIds));
+  }, [savedIds]);
+
+  React.useEffect(() => {
+    localStorage.setItem('scholar_search_history', JSON.stringify(searchHistory));
+  }, [searchHistory]);
+
+  React.useEffect(() => {
+    if (searchQuery.trim().length > 2) {
+      const timer = setTimeout(() => {
+        setSearchHistory(prev => {
+          const filtered = prev.filter(q => q !== searchQuery.trim());
+          return [searchQuery.trim(), ...filtered].slice(0, 5);
+        });
+      }, 1000);
+      return () => clearTimeout(timer);
+    }
+  }, [searchQuery]);
 
   const handleProfileSubmit = async (newProfile: UserProfile) => {
     setIsLoading(true);
@@ -93,6 +134,22 @@ export default function App() {
     return sortBy === 'DeadlineAsc' ? dateA - dateB : dateB - dateA;
   });
 
+  const handleApply = (id: string) => {
+    if (!appliedIds.includes(id)) {
+      setAppliedIds(prev => [...prev, id]);
+    }
+    setIsAssistantOpen(true);
+  };
+
+  const handleSave = (id: string) => {
+    setSavedIds(prev => {
+      if (prev.includes(id)) {
+        return prev.filter(i => i !== id);
+      }
+      return [...prev, id];
+    });
+  };
+
   if (!currentUser) {
     return <Auth onLogin={setCurrentUser} />;
   }
@@ -124,6 +181,37 @@ export default function App() {
           
           {profile && (
             <div className="flex items-center gap-4">
+              <NotificationManager />
+              <button 
+                onClick={() => setView(view === 'Dashboard' ? 'Results' : 'Dashboard')}
+                className={`flex items-center gap-2 px-6 py-2.5 rounded-full text-xs font-black uppercase tracking-widest transition-all shadow-lg ${
+                  view === 'Dashboard' 
+                    ? 'bg-indigo-600 text-white shadow-indigo-200' 
+                    : 'bg-white text-slate-900 border border-slate-100 shadow-slate-200 hover:bg-slate-50'
+                }`}
+              >
+                <LayoutDashboard size={14} /> {view === 'Dashboard' ? 'Back to Results' : 'Dashboard'}
+              </button>
+              <button 
+                onClick={() => setView(view === 'Applications' ? 'Results' : 'Applications')}
+                className={`flex items-center gap-2 px-6 py-2.5 rounded-full text-xs font-black uppercase tracking-widest transition-all shadow-lg ${
+                  view === 'Applications' 
+                    ? 'bg-indigo-600 text-white shadow-indigo-200' 
+                    : 'bg-white text-slate-900 border border-slate-100 shadow-slate-200 hover:bg-slate-50'
+                }`}
+              >
+                <BookmarkCheck size={14} /> {view === 'Applications' ? 'Back to Results' : 'My Applications'}
+              </button>
+              <button 
+                onClick={() => setView(view === 'Saved' ? 'Results' : 'Saved')}
+                className={`flex items-center gap-2 px-6 py-2.5 rounded-full text-xs font-black uppercase tracking-widest transition-all shadow-lg ${
+                  view === 'Saved' 
+                    ? 'bg-rose-600 text-white shadow-rose-200' 
+                    : 'bg-white text-slate-900 border border-slate-100 shadow-slate-200 hover:bg-slate-50'
+                }`}
+              >
+                <Heart size={14} className={savedIds.length > 0 ? "fill-current" : ""} /> {view === 'Saved' ? 'Back to Results' : 'Saved'}
+              </button>
               <button 
                 onClick={() => setView(view === 'Profile' ? 'Results' : 'Profile')}
                 className={`flex items-center gap-2 px-6 py-2.5 rounded-full text-xs font-black uppercase tracking-widest transition-all shadow-lg ${
@@ -136,13 +224,15 @@ export default function App() {
               </button>
               <button 
                 onClick={() => { 
-                  localStorage.removeItem('scholar_current_user');
-                  localStorage.removeItem('scholar_profile');
-                  localStorage.removeItem('scholar_results');
-                  setCurrentUser(null);
-                  setProfile(null); 
-                  setResults([]); 
-                  setView('Landing'); 
+                  if (window.confirm('Are you sure you want to logout?')) {
+                    localStorage.removeItem('scholar_current_user');
+                    localStorage.removeItem('scholar_profile');
+                    localStorage.removeItem('scholar_results');
+                    setCurrentUser(null);
+                    setProfile(null); 
+                    setResults([]); 
+                    setView('Landing'); 
+                  }
                 }}
                 className="flex items-center gap-2 px-6 py-2.5 bg-slate-900 hover:bg-black text-white rounded-full text-xs font-black uppercase tracking-widest transition-all shadow-lg shadow-slate-200"
               >
@@ -207,6 +297,130 @@ export default function App() {
                   <p className="text-sm text-slate-400 font-medium">Funding that aligns with your professional dreams.</p>
                 </div>
               </div>
+            </motion.div>
+          ) : view === 'Dashboard' ? (
+            <motion.div
+              key="dashboard"
+              initial={{ opacity: 0, x: 20 }}
+              animate={{ opacity: 1, x: 0 }}
+              exit={{ opacity: 0, x: -20 }}
+            >
+              <div className="mb-12">
+                <h2 className="text-4xl font-black text-slate-900 tracking-tight mb-2">Interest Dashboard</h2>
+                <p className="text-slate-500 font-medium">Visualizing your scholarship journey and AI-detected interests.</p>
+              </div>
+              <Dashboard 
+                results={results} 
+                profile={profile} 
+                appliedIds={appliedIds} 
+                searchHistory={searchHistory}
+              />
+            </motion.div>
+          ) : view === 'Applications' ? (
+            <motion.div
+              key="applications"
+              initial={{ opacity: 0, x: 20 }}
+              animate={{ opacity: 1, x: 0 }}
+              exit={{ opacity: 0, x: -20 }}
+              className="space-y-12"
+            >
+              <div className="flex flex-col md:flex-row md:items-center justify-between gap-8">
+                <div className="space-y-2">
+                  <h2 className="text-4xl font-black text-slate-900 tracking-tight">My Applications</h2>
+                  <p className="text-slate-500 font-medium">Tracking {appliedIds.length} scholarships you've started or completed.</p>
+                </div>
+                <button 
+                  onClick={() => setView('Results')}
+                  className="flex items-center gap-2 px-6 py-3 bg-white text-slate-900 border border-slate-100 rounded-2xl text-xs font-black uppercase tracking-widest shadow-sm hover:bg-slate-50 transition-all"
+                >
+                  <ArrowLeft size={14} /> Back to All Matches
+                </button>
+              </div>
+
+              {appliedIds.length > 0 ? (
+                <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-8">
+                  {results
+                    .filter(r => appliedIds.includes(r.scholarship.id))
+                    .map((result) => (
+                      <ScholarshipCard
+                        key={result.scholarship.id}
+                        scholarship={result.scholarship}
+                        match={result.match}
+                        isApplied={true}
+                        onApply={handleApply}
+                        onSave={handleSave}
+                        isSaved={savedIds.includes(result.scholarship.id)}
+                      />
+                    ))}
+                </div>
+              ) : (
+                <div className="bg-white p-16 rounded-[3rem] text-center border border-slate-100 shadow-sm">
+                  <div className="w-20 h-20 bg-slate-50 text-slate-300 rounded-3xl flex items-center justify-center mx-auto mb-6">
+                    <BookmarkCheck size={40} />
+                  </div>
+                  <h3 className="text-2xl font-black text-slate-900 mb-2">No Applications Yet</h3>
+                  <p className="text-slate-500 font-medium mb-8">Start exploring matches and click "Apply Now" to track them here.</p>
+                  <button 
+                    onClick={() => setView('Results')}
+                    className="px-8 py-4 bg-indigo-600 text-white rounded-2xl text-sm font-black uppercase tracking-widest shadow-xl shadow-indigo-100 hover:bg-indigo-700 transition-all"
+                  >
+                    Explore Scholarships
+                  </button>
+                </div>
+              )}
+            </motion.div>
+          ) : view === 'Saved' ? (
+            <motion.div
+              key="saved"
+              initial={{ opacity: 0, x: 20 }}
+              animate={{ opacity: 1, x: 0 }}
+              exit={{ opacity: 0, x: -20 }}
+              className="space-y-12"
+            >
+              <div className="flex flex-col md:flex-row md:items-center justify-between gap-8">
+                <div className="space-y-2">
+                  <h2 className="text-4xl font-black text-slate-900 tracking-tight">Saved Scholarships</h2>
+                  <p className="text-slate-500 font-medium">You have {savedIds.length} scholarships saved for later.</p>
+                </div>
+                <button 
+                  onClick={() => setView('Results')}
+                  className="flex items-center gap-2 px-6 py-3 bg-white text-slate-900 border border-slate-100 rounded-2xl text-xs font-black uppercase tracking-widest shadow-sm hover:bg-slate-50 transition-all"
+                >
+                  <ArrowLeft size={14} /> Back to All Matches
+                </button>
+              </div>
+
+              {savedIds.length > 0 ? (
+                <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-8">
+                  {results
+                    .filter(r => savedIds.includes(r.scholarship.id))
+                    .map((result) => (
+                      <ScholarshipCard
+                        key={result.scholarship.id}
+                        scholarship={result.scholarship}
+                        match={result.match}
+                        isApplied={appliedIds.includes(result.scholarship.id)}
+                        onApply={handleApply}
+                        onSave={handleSave}
+                        isSaved={true}
+                      />
+                    ))}
+                </div>
+              ) : (
+                <div className="bg-white p-16 rounded-[3rem] text-center border border-slate-100 shadow-sm">
+                  <div className="w-20 h-20 bg-slate-50 text-slate-300 rounded-3xl flex items-center justify-center mx-auto mb-6">
+                    <Heart size={40} />
+                  </div>
+                  <h3 className="text-2xl font-black text-slate-900 mb-2">No Saved Scholarships</h3>
+                  <p className="text-slate-500 font-medium mb-8">Click the heart icon on any scholarship to save it for later.</p>
+                  <button 
+                    onClick={() => setView('Results')}
+                    className="px-8 py-4 bg-indigo-600 text-white rounded-2xl text-sm font-black uppercase tracking-widest shadow-xl shadow-indigo-100 hover:bg-indigo-700 transition-all"
+                  >
+                    Find Scholarships
+                  </button>
+                </div>
+              )}
             </motion.div>
           ) : view === 'Profile' ? (
             <motion.div
@@ -316,6 +530,10 @@ export default function App() {
                       key={item.scholarship.id} 
                       scholarship={item.scholarship} 
                       match={item.match} 
+                      onApply={handleApply}
+                      isApplied={appliedIds.includes(item.scholarship.id)}
+                      onSave={handleSave}
+                      isSaved={savedIds.includes(item.scholarship.id)}
                     />
                   ))}
                 </div>
@@ -335,6 +553,19 @@ export default function App() {
                         ? "Our AI couldn't find specific matches. Try broadening your 'Background' or 'Career Goals' in your profile to help the AI find more relevant results."
                         : "Your current filters might be too restrictive. Try these suggestions to see more results:"}
                     </p>
+                    <div className="pt-4 border-t border-slate-100">
+                      <p className="text-xs text-slate-400 font-bold uppercase tracking-widest mb-3">Facing an issue?</p>
+                      <button 
+                        onClick={() => {
+                          // This is a bit hacky since we don't have a global state for the chatbot, 
+                          // but the floating bubble is always there. We could use a custom event.
+                          window.dispatchEvent(new CustomEvent('open-support-chat'));
+                        }}
+                        className="inline-flex items-center gap-2 px-6 py-3 bg-slate-900 text-white rounded-2xl text-[10px] font-black uppercase tracking-widest hover:bg-black transition-all shadow-xl shadow-slate-200"
+                      >
+                        <Bot size={14} /> Talk to Support AI
+                      </button>
+                    </div>
                     {results.length > 0 && (
                       <div className="flex flex-wrap justify-center gap-3">
                         {searchQuery && (
@@ -367,6 +598,16 @@ export default function App() {
           )}
         </AnimatePresence>
       </main>
+
+      {profile && (
+        <ApplicationAssistant 
+          profile={profile} 
+          isOpen={isAssistantOpen} 
+          onClose={() => setIsAssistantOpen(false)} 
+        />
+      )}
+
+      <SupportChatbot />
 
       <footer className="max-w-7xl mx-auto px-6 py-12 border-t border-slate-100">
         <div className="flex flex-col md:flex-row justify-between items-center gap-8">

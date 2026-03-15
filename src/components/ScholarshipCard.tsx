@@ -1,19 +1,36 @@
 import React, { useState } from 'react';
-import { Scholarship, MatchResult } from '../types';
-import { ExternalLink, Award, Calendar, Building2, CheckCircle2, AlertCircle, ChevronDown, ChevronUp, Info, Search, Share2, Check, Heart } from 'lucide-react';
+import { Scholarship, MatchResult, ApplicationStatus } from '../types';
+import { ExternalLink, Award, Calendar, Building2, CheckCircle2, AlertCircle, ChevronDown, ChevronUp, Info, Search, Share2, Check, Heart, Clock, Trophy, XCircle, Edit3, Save, X } from 'lucide-react';
 import { motion, AnimatePresence } from 'motion/react';
 
 interface ScholarshipCardProps {
   scholarship: Scholarship;
   match?: MatchResult;
   onApply?: (id: string) => void;
-  isApplied?: boolean;
+  applicationStatus?: ApplicationStatus;
+  onUpdateStatus?: (id: string, status: ApplicationStatus) => void;
+  onUpdateNotes?: (id: string, notes: string) => void;
+  initialNotes?: string;
   onSave?: (id: string) => void;
   isSaved?: boolean;
+  onView?: (id: string) => void;
 }
 
-export const ScholarshipCard: React.FC<ScholarshipCardProps> = ({ scholarship, match, onApply, isApplied, onSave, isSaved }) => {
+export const ScholarshipCard: React.FC<ScholarshipCardProps> = ({ 
+  scholarship, 
+  match, 
+  onApply, 
+  applicationStatus, 
+  onUpdateStatus,
+  onUpdateNotes,
+  initialNotes = '',
+  onSave, 
+  isSaved,
+  onView
+}) => {
   const [isExpanded, setIsExpanded] = useState(false);
+  const [showNotes, setShowNotes] = useState(false);
+  const [notes, setNotes] = useState(initialNotes);
   const [copied, setCopied] = useState(false);
   const isHighMatch = match && match.matchScore >= 80;
   const isMediumMatch = match && match.matchScore >= 50 && match.matchScore < 80;
@@ -63,7 +80,10 @@ export const ScholarshipCard: React.FC<ScholarshipCardProps> = ({ scholarship, m
     <motion.div
       initial={{ opacity: 0, y: 20 }}
       animate={{ opacity: 1, y: 0 }}
-      onClick={() => setIsExpanded(!isExpanded)}
+      onClick={() => {
+        setIsExpanded(!isExpanded);
+        onView?.(scholarship.id);
+      }}
       className={`bg-white rounded-[2.5rem] p-8 border border-slate-100 shadow-xl shadow-slate-200/50 hover:shadow-indigo-200/40 transition-all flex flex-col h-full group relative overflow-hidden cursor-pointer ${isPastDeadline ? 'opacity-75 grayscale-[0.2]' : ''}`}
     >
       {/* Decorative gradient corner */}
@@ -92,9 +112,24 @@ export const ScholarshipCard: React.FC<ScholarshipCardProps> = ({ scholarship, m
               <CheckCircle2 size={10} /> Apply Now
             </span>
           )}
-          {isApplied && (
+          {applicationStatus === 'Applied' && (
             <span className="px-4 py-1.5 rounded-full text-[10px] font-black uppercase tracking-widest bg-emerald-500 text-white border border-emerald-400 flex items-center gap-1 shadow-sm">
               <CheckCircle2 size={10} /> Applied
+            </span>
+          )}
+          {applicationStatus === 'In Progress' && (
+            <span className="px-4 py-1.5 rounded-full text-[10px] font-black uppercase tracking-widest bg-amber-500 text-white border border-amber-400 flex items-center gap-1 shadow-sm">
+              <Clock size={10} /> In Progress
+            </span>
+          )}
+          {applicationStatus === 'Awarded' && (
+            <span className="px-4 py-1.5 rounded-full text-[10px] font-black uppercase tracking-widest bg-indigo-600 text-white border border-indigo-500 flex items-center gap-1 shadow-sm">
+              <Trophy size={10} /> Awarded
+            </span>
+          )}
+          {applicationStatus === 'Rejected' && (
+            <span className="px-4 py-1.5 rounded-full text-[10px] font-black uppercase tracking-widest bg-rose-600 text-white border border-rose-500 flex items-center gap-1 shadow-sm">
+              <XCircle size={10} /> Not Awarded
             </span>
           )}
           {isSaved && (
@@ -105,6 +140,16 @@ export const ScholarshipCard: React.FC<ScholarshipCardProps> = ({ scholarship, m
           {scholarship.targetCommunity && scholarship.targetCommunity.toLowerCase() !== 'general' && (
             <span className="px-4 py-1.5 rounded-full text-[10px] font-black uppercase tracking-widest bg-slate-900 text-white border border-slate-800">
               {scholarship.targetCommunity}
+            </span>
+          )}
+          {scholarship.major && (
+            <span className="px-4 py-1.5 rounded-full text-[10px] font-black uppercase tracking-widest bg-amber-50 text-amber-600 border border-amber-100">
+              {scholarship.major}
+            </span>
+          )}
+          {scholarship.type && (
+            <span className="px-4 py-1.5 rounded-full text-[10px] font-black uppercase tracking-widest bg-blue-50 text-blue-600 border border-blue-100">
+              {scholarship.type}
             </span>
           )}
         </div>
@@ -214,7 +259,7 @@ export const ScholarshipCard: React.FC<ScholarshipCardProps> = ({ scholarship, m
             }}
             className={`flex items-center gap-2 text-[10px] font-black uppercase tracking-widest transition-all px-4 py-2 rounded-full border ${
               isSaved 
-                ? 'bg-rose-50 text-rose-600 border-rose-100 shadow-sm' 
+                ? 'bg-rose-500 text-white border-rose-500 shadow-lg shadow-rose-100' 
                 : 'text-slate-400 hover:text-rose-500 bg-slate-50/50 border-slate-100'
             }`}
             title={isSaved ? "Remove from saved" : "Save for later"}
@@ -241,6 +286,28 @@ export const ScholarshipCard: React.FC<ScholarshipCardProps> = ({ scholarship, m
                     {scholarship.provider}
                   </p>
                 </div>
+
+                {scholarship.minGpa && (
+                  <div>
+                    <p className="text-[10px] text-indigo-400 font-black uppercase tracking-widest mb-1">
+                      Minimum GPA Required
+                    </p>
+                    <p className="text-xs text-slate-700 leading-relaxed font-bold">
+                      {scholarship.minGpa}
+                    </p>
+                  </div>
+                )}
+
+                {scholarship.location && (
+                  <div>
+                    <p className="text-[10px] text-indigo-400 font-black uppercase tracking-widest mb-1">
+                      Specific Location
+                    </p>
+                    <p className="text-xs text-slate-700 leading-relaxed font-bold">
+                      {scholarship.location}
+                    </p>
+                  </div>
+                )}
 
                 <div>
                   <p className="text-[10px] text-indigo-400 font-black uppercase tracking-widest mb-1">
@@ -300,24 +367,118 @@ export const ScholarshipCard: React.FC<ScholarshipCardProps> = ({ scholarship, m
           <div className="w-full py-5 bg-slate-100 text-slate-400 text-sm font-black uppercase tracking-widest rounded-2xl flex items-center justify-center gap-2 border border-slate-200 cursor-not-allowed">
             Deadline Passed <AlertCircle size={18} />
           </div>
-        ) : isApplied ? (
-          <div className="w-full py-5 bg-emerald-50 text-emerald-600 text-sm font-black uppercase tracking-widest rounded-2xl flex items-center justify-center gap-2 border border-emerald-200 shadow-inner">
-            Already Applied <CheckCircle2 size={18} />
-          </div>
         ) : (
-          <a
-            href={scholarship.link}
-            target="_blank"
-            rel="noopener noreferrer"
-            onClick={(e) => {
-              e.stopPropagation();
-              onApply?.(scholarship.id);
-            }}
-            className="w-full py-5 bg-gradient-to-r from-indigo-600 to-violet-600 hover:from-indigo-700 hover:to-violet-700 text-white text-sm font-black uppercase tracking-widest rounded-2xl transition-all flex items-center justify-center gap-2 shadow-xl shadow-indigo-200 group/btn"
-          >
-            Apply Now <ExternalLink size={18} className="group-hover/btn:translate-x-0.5 group-hover/btn:-translate-y-0.5 transition-transform" />
-          </a>
+          <div className="space-y-4">
+            {!applicationStatus ? (
+              <button
+                onClick={(e) => {
+                  e.stopPropagation();
+                  onApply?.(scholarship.id);
+                }}
+                className="w-full py-5 bg-gradient-to-r from-indigo-600 to-violet-600 hover:from-indigo-700 hover:to-violet-700 text-white text-sm font-black uppercase tracking-widest rounded-2xl transition-all flex items-center justify-center gap-2 shadow-xl shadow-indigo-200 group/btn"
+              >
+                Apply Now <ExternalLink size={18} className="group-hover/btn:translate-x-0.5 group-hover/btn:-translate-y-0.5 transition-transform" />
+              </button>
+            ) : (
+              <div className="grid grid-cols-2 gap-3">
+                <a
+                  href={scholarship.link}
+                  target="_blank"
+                  rel="noopener noreferrer"
+                  onClick={(e) => e.stopPropagation()}
+                  className="py-4 bg-slate-900 text-white text-[10px] font-black uppercase tracking-widest rounded-2xl flex items-center justify-center gap-2 hover:bg-black transition-all"
+                >
+                  Visit Portal <ExternalLink size={14} />
+                </a>
+                <div className="relative group/status">
+                  <button
+                    onClick={(e) => e.stopPropagation()}
+                    className={`w-full py-4 text-[10px] font-black uppercase tracking-widest rounded-2xl border transition-all flex items-center justify-center gap-2 ${
+                      applicationStatus === 'Awarded' ? 'bg-indigo-50 text-indigo-600 border-indigo-100' :
+                      applicationStatus === 'Applied' ? 'bg-emerald-50 text-emerald-600 border-emerald-100' :
+                      applicationStatus === 'Rejected' ? 'bg-rose-50 text-rose-600 border-rose-100' :
+                      'bg-amber-50 text-amber-600 border-amber-100'
+                    }`}
+                  >
+                    {applicationStatus} <ChevronDown size={14} />
+                  </button>
+                  <div className="absolute bottom-full left-0 w-full mb-2 bg-white rounded-2xl shadow-2xl border border-slate-100 overflow-hidden opacity-0 invisible group-hover/status:opacity-100 group-hover/status:visible transition-all z-50">
+                    {(['In Progress', 'Applied', 'Awarded', 'Rejected'] as ApplicationStatus[]).map((status) => (
+                      <button
+                        key={status}
+                        onClick={(e) => {
+                          e.stopPropagation();
+                          onUpdateStatus?.(scholarship.id, status);
+                        }}
+                        className={`w-full px-4 py-3 text-[10px] font-black uppercase tracking-widest text-left hover:bg-slate-50 transition-colors flex items-center justify-between ${
+                          applicationStatus === status ? 'text-indigo-600 bg-indigo-50/30' : 'text-slate-600'
+                        }`}
+                      >
+                        {status}
+                        {applicationStatus === status && <Check size={12} />}
+                      </button>
+                    ))}
+                  </div>
+                </div>
+              </div>
+            )}
+            
+            {applicationStatus && (
+              <button
+                onClick={(e) => {
+                  e.stopPropagation();
+                  setShowNotes(!showNotes);
+                }}
+                className={`p-4 rounded-2xl border transition-all ${showNotes ? 'bg-indigo-50 border-indigo-100 text-indigo-600' : 'bg-slate-50 border-slate-100 text-slate-400 hover:text-slate-600'}`}
+                title="Add Notes"
+              >
+                <Edit3 size={18} />
+              </button>
+            )}
+          </div>
         )}
+
+        {/* Notes Section */}
+        <AnimatePresence>
+          {showNotes && applicationStatus && (
+            <motion.div
+              initial={{ height: 0, opacity: 0 }}
+              animate={{ height: 'auto', opacity: 1 }}
+              exit={{ height: 0, opacity: 0 }}
+              onClick={(e) => e.stopPropagation()}
+              className="overflow-hidden"
+            >
+              <div className="mt-4 pt-4 border-t border-slate-50">
+                <div className="flex items-center justify-between mb-3">
+                  <label className="text-[10px] font-black text-slate-400 uppercase tracking-widest">Application Notes</label>
+                  <div className="flex items-center gap-2">
+                    <button 
+                      onClick={() => {
+                        onUpdateNotes?.(scholarship.id, notes);
+                        setShowNotes(false);
+                      }}
+                      className="flex items-center gap-1 text-[10px] font-bold text-indigo-600 hover:text-indigo-700"
+                    >
+                      <Save size={12} /> Save
+                    </button>
+                    <button 
+                      onClick={() => setShowNotes(false)}
+                      className="text-slate-400 hover:text-slate-600"
+                    >
+                      <X size={12} />
+                    </button>
+                  </div>
+                </div>
+                <textarea
+                  value={notes}
+                  onChange={(e) => setNotes(e.target.value)}
+                  placeholder="Add deadlines, requirements, or progress notes..."
+                  className="w-full h-24 p-4 bg-slate-50 border-none rounded-2xl text-xs text-slate-600 placeholder:text-slate-400 focus:ring-2 focus:ring-indigo-500/20 resize-none font-medium"
+                />
+              </div>
+            </motion.div>
+          )}
+        </AnimatePresence>
       </div>
     </motion.div>
   );

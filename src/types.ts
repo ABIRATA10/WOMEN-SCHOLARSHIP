@@ -8,6 +8,7 @@ export interface User {
 
 export interface UserProfile {
   fullName: string;
+  phoneNumber?: string;
   age: number;
   gender: string;
   educationLevel: 'High School' | 'Undergraduate' | 'Postgraduate' | 'Doctorate';
@@ -23,7 +24,11 @@ export interface UserProfile {
   incomeBracket: string;
   background: string; // e.g., "Single mother", "First-generation student", "STEM enthusiast"
   careerGoals: string;
+  extracurriculars?: string;
+  awards?: string;
   profileDeadline?: string;
+  languagesSpoken?: string;
+  volunteerExperience?: string;
 }
 
 export interface Scholarship {
@@ -38,6 +43,10 @@ export interface Scholarship {
   link: string;
   targetCommunity?: string; // e.g., "OBC", "SC/ST", "Minority", "Women in STEM"
   scope: 'State' | 'National' | 'Global';
+  major?: string; // Field of study
+  minGpa?: number;
+  location?: string; // Specific location if applicable
+  type?: 'Merit-based' | 'Need-based' | 'Other';
 }
 
 export interface MatchResult {
@@ -50,4 +59,13 @@ export interface MatchResult {
 export interface ScholarshipMatch {
   scholarship: Scholarship;
   match: MatchResult;
+}
+
+export type ApplicationStatus = 'In Progress' | 'Applied' | 'Awarded' | 'Rejected';
+
+export interface Application {
+  scholarshipId: string;
+  status: ApplicationStatus;
+  updatedAt: string;
+  notes?: string;
 }

@@ -1,5 +1,5 @@
 import { GoogleGenAI, Type } from "@google/genai";
-import { UserProfile, Scholarship, MatchResult, ScholarshipMatch } from "../types";
+import { UserProfile, Scholarship, MatchResult, ScholarshipMatch, Application } from "../types";
 import { LOCAL_SCHOLARSHIP_DATA } from "../constants/scholarshipData";
 
 const apiKey = process.env.GEMINI_API_KEY || "";
@@ -25,7 +25,7 @@ export async function findScholarships(
     2. Prioritize:
        - Scholarships currently accepting applications.
        - Upcoming scholarships (those opening in the next 6-12 months).
-       - Scholarships specifically for the user's gender (${userProfile.gender}), year of study (${userProfile.yearOfStudy}), background, or field of study.
+       - Scholarships specifically for the user's gender (${userProfile.gender}), year of study (${userProfile.yearOfStudy}), background, extracurricular activities (${userProfile.extracurriculars || 'None listed'}), awards/honors (${userProfile.awards || 'None listed'}), or field of study.
        - Local opportunities in ${userProfile.country} and ${userProfile.state}.
        - Global opportunities (USA, UK, Europe, etc.) that accept international students from ${userProfile.country}.
        - If the user has set a profile completion deadline (${userProfile.profileDeadline}), prioritize scholarships with deadlines that align with or follow this date, ensuring the user has enough time to apply after completing their profile.
@@ -40,6 +40,10 @@ export async function findScholarships(
        - A brief description
        - Category (Government or Private)
        - Scope (State, National, or Global - State means specific to ${userProfile.state}, National means specific to ${userProfile.country}, Global means international)
+       - Major (The specific field of study this scholarship is for, e.g., "Computer Science", "Medicine", or "General")
+       - Minimum GPA (The minimum GPA required, as a number. Note: The user's CGPA is provided on a 10.0 scale, so ensure this value is compatible, e.g., 7.5)
+       - Specific Location (The specific city, state, or country if applicable)
+       - Scholarship Type (One of: 'Merit-based', 'Need-based', 'Other')
        - A direct application link (MANDATORY: Ensure this link is accurate and active. If a specific application page is not found, provide the provider's official scholarship portal or main website).
        - A match score (0-100)
        - AI reasoning for the match
@@ -73,6 +77,10 @@ export async function findScholarships(
                   scope: { type: Type.STRING, description: "One of: 'State', 'National', 'Global'" },
                   link: { type: Type.STRING },
                   targetCommunity: { type: Type.STRING, description: "Specific caste or community this scholarship targets, if any." },
+                  major: { type: Type.STRING, description: "Field of study, e.g., 'Computer Science'" },
+                  minGpa: { type: Type.NUMBER, description: "Minimum GPA required" },
+                  location: { type: Type.STRING, description: "Specific location if applicable" },
+                  type: { type: Type.STRING, description: "One of: 'Merit-based', 'Need-based', 'Other'" },
                 },
                 required: ["id", "title", "provider", "amount", "deadline", "eligibilityCriteria", "description", "category", "link", "scope"],
               },
@@ -93,9 +101,75 @@ export async function findScholarships(
       },
     });
 
-    return JSON.parse(response.text || "[]");
-  } catch (error) {
+    if (!response.text) {
+      throw new Error("The AI advisor couldn't generate a response. This might be due to a temporary connection issue or high traffic. Please try again in a few moments! ✨");
+    }
+
+    const parsed = JSON.parse(response.text);
+    return Array.isArray(parsed) ? parsed : [];
+  } catch (error: any) {
     console.error("Error finding scholarships:", error);
+    
+    if (error.message?.includes("quota") || error.message?.includes("limit")) {
+      throw new Error("Our AI advisor is currently handling a lot of requests! 🚀 Please wait a minute and try again—we're eager to help you find your funding!");
+    }
+    
+    if (error.message?.includes("JSON")) {
+      throw new Error("We encountered a small hiccup while processing the scholarship data. 🧩 Please try searching again, and we'll get it right this time!");
+    }
+
+    if (error.message?.includes("matching your current profile")) {
+      throw error;
+    }
+
+    throw new Error(error.message || "Oops! Something went wrong while searching for scholarships. 😔 Please check your internet connection and try again!");
+  }
+}
+
+export async function getRecommendations(
+  profile: UserProfile,
+  results: ScholarshipMatch[],
+  viewedIds: string[],
+  savedIds: string[],
+  applications: Application[]
+): Promise<ScholarshipMatch[]> {
+  try {
+    const viewedScholarships = results.filter(r => viewedIds.includes(r.scholarship.id));
+    const savedScholarships = results.filter(r => savedIds.includes(r.scholarship.id));
+    const appliedScholarships = results.filter(r => applications.some(a => a.scholarshipId === r.scholarship.id));
+
+    const context = {
+      profile,
+      viewed: viewedScholarships.map(s => s.scholarship.title),
+      saved: savedScholarships.map(s => s.scholarship.title),
+      applied: appliedScholarships.map(s => s.scholarship.title)
+    };
+
+    const prompt = `Based on the following user context, recommend the top 3 scholarships from the provided list that the user hasn't applied to yet.
+    
+    User Context:
+    - Profile: ${JSON.stringify(context.profile)}
+    - Recently Viewed: ${context.viewed.join(', ')}
+    - Saved: ${context.saved.join(', ')}
+    - Already Applied: ${context.applied.join(', ')}
+
+    Scholarship List:
+    ${JSON.stringify(results.map(r => ({ id: r.scholarship.id, title: r.scholarship.title, description: r.scholarship.description })))}
+
+    Return ONLY a JSON array of scholarship IDs. Example: ["id1", "id2", "id3"]`;
+
+    const response = await ai.models.generateContent({
+      model: "gemini-3-flash-preview",
+      contents: prompt,
+      config: {
+        responseMimeType: "application/json",
+      }
+    });
+
+    const recommendedIds = JSON.parse(response.text || "[]") as string[];
+    return results.filter(r => recommendedIds.includes(r.scholarship.id));
+  } catch (error) {
+    console.error("Failed to get recommendations", error);
     return [];
   }
 }

@@ -6,9 +6,9 @@ import { ApplicationAssistant } from './components/ApplicationAssistant';
 import { Dashboard } from './components/Dashboard';
 import { SupportChatbot } from './components/SupportChatbot';
 import { NotificationManager } from './components/NotificationManager';
-import { UserProfile, Scholarship, MatchResult, User as UserType, ScholarshipMatch } from './types';
+import { UserProfile, Scholarship, MatchResult, User as UserType, ScholarshipMatch, Application, ApplicationStatus } from './types';
 import { findScholarships } from './services/gemini';
-import { Sparkles, GraduationCap, Filter, Search, ArrowLeft, Globe, MapPin, User, LogOut, LayoutDashboard, BookmarkCheck, Heart, Bot } from 'lucide-react';
+import { Sparkles, GraduationCap, Filter, Search, ArrowLeft, Globe, MapPin, User, LogOut, LayoutDashboard, BookmarkCheck, Heart, Bot, AlertTriangle, Clock } from 'lucide-react';
 import { motion, AnimatePresence } from 'motion/react';
 
 export default function App() {
@@ -25,21 +25,46 @@ export default function App() {
     return saved ? JSON.parse(saved) : [];
   });
   const [isLoading, setIsLoading] = React.useState(false);
+  const [error, setError] = React.useState<string | null>(null);
   const [filter, setFilter] = React.useState<'All' | 'Government' | 'Private'>('All');
   const [scopeFilter, setScopeFilter] = React.useState<'All' | 'State' | 'National' | 'Global'>('All');
+  const [majorFilter, setMajorFilter] = React.useState<string>('All');
+  const [gpaFilter, setGpaFilter] = React.useState<string>('All');
+  const [locationFilter, setLocationFilter] = React.useState<string>('All');
+  const [typeFilter, setTypeFilter] = React.useState<'All' | 'Merit-based' | 'Need-based' | 'Other'>('All');
+  const [showAdvancedFilters, setShowAdvancedFilters] = React.useState(false);
   const [communityOnly, setCommunityOnly] = React.useState(false);
+  const [amountFilter, setAmountFilter] = React.useState<string>('All');
+  const [providerFilter, setProviderFilter] = React.useState<string>('All');
+  const [communityFilter, setCommunityFilter] = React.useState<string>('All');
   const [searchQuery, setSearchQuery] = React.useState('');
   const [view, setView] = React.useState<'Landing' | 'Results' | 'Profile' | 'Dashboard' | 'Applications' | 'Saved'>(() => {
     const saved = localStorage.getItem('scholar_profile');
     return saved ? 'Results' : 'Landing';
   });
-  const [sortBy, setSortBy] = React.useState<'Match' | 'DeadlineAsc' | 'DeadlineDesc'>('Match');
-  const [appliedIds, setAppliedIds] = React.useState<string[]>(() => {
-    const saved = localStorage.getItem('scholar_applied_ids');
-    return saved ? JSON.parse(saved) : [];
+  const [sortBy, setSortBy] = React.useState<'Match' | 'DeadlineAsc' | 'DeadlineDesc' | 'AmountDesc'>('Match');
+  const [applications, setApplications] = React.useState<Application[]>(() => {
+    const saved = localStorage.getItem('scholar_applications');
+    if (saved) return JSON.parse(saved);
+    
+    // Migration from old appliedIds if exists
+    const oldApplied = localStorage.getItem('scholar_applied_ids');
+    if (oldApplied) {
+      const ids = JSON.parse(oldApplied) as string[];
+      return ids.map(id => ({
+        scholarshipId: id,
+        status: 'Applied' as ApplicationStatus,
+        updatedAt: new Date().toISOString()
+      }));
+    }
+    return [];
   });
   const [savedIds, setSavedIds] = React.useState<string[]>(() => {
     const saved = localStorage.getItem('scholar_saved_ids');
+    return saved ? JSON.parse(saved) : [];
+  });
+  const [viewedIds, setViewedIds] = React.useState<string[]>(() => {
+    const saved = localStorage.getItem('scholar_viewed_ids');
     return saved ? JSON.parse(saved) : [];
   });
   const [searchHistory, setSearchHistory] = React.useState<string[]>(() => {
@@ -80,12 +105,16 @@ export default function App() {
   }, [results]);
 
   React.useEffect(() => {
-    localStorage.setItem('scholar_applied_ids', JSON.stringify(appliedIds));
-  }, [appliedIds]);
+    localStorage.setItem('scholar_applications', JSON.stringify(applications));
+  }, [applications]);
 
   React.useEffect(() => {
     localStorage.setItem('scholar_saved_ids', JSON.stringify(savedIds));
   }, [savedIds]);
+
+  React.useEffect(() => {
+    localStorage.setItem('scholar_viewed_ids', JSON.stringify(viewedIds));
+  }, [viewedIds]);
 
   React.useEffect(() => {
     localStorage.setItem('scholar_search_history', JSON.stringify(searchHistory));
@@ -105,13 +134,15 @@ export default function App() {
 
   const handleProfileSubmit = async (newProfile: UserProfile) => {
     setIsLoading(true);
+    setError(null);
     setProfile(newProfile);
     setView('Results');
     try {
       const searchResults = await findScholarships(newProfile);
       setResults(searchResults);
-    } catch (error) {
-      console.error(error);
+    } catch (err: any) {
+      setError(err.message || "An unexpected error occurred.");
+      setResults([]);
     } finally {
       setIsLoading(false);
     }
@@ -124,15 +155,43 @@ export default function App() {
     return isNaN(date.getTime()) ? 4102444800000 : date.getTime();
   };
 
+  const parseAmount = (amountStr: string): number => {
+    const numericStr = amountStr.replace(/[^0-9.]/g, '');
+    return parseFloat(numericStr) || 0;
+  };
+
   const filteredResults = results.filter(r => {
     const s = r.scholarship;
+    const m = r.match;
     const matchesFilter = filter === 'All' || s.category === filter;
     const matchesScope = scopeFilter === 'All' || s.scope === scopeFilter;
-    const matchesCommunity = !communityOnly || (s.targetCommunity && s.targetCommunity.toLowerCase() !== 'general' && s.targetCommunity.toLowerCase() !== 'none');
+    const matchesMajor = majorFilter === 'All' || (s.major && s.major.toLowerCase().includes(majorFilter.toLowerCase()));
+    const matchesGpa = gpaFilter === 'All' || (s.minGpa !== undefined && s.minGpa <= parseFloat(gpaFilter));
+    const matchesLocation = locationFilter === 'All' || (s.location && s.location.toLowerCase().includes(locationFilter.toLowerCase()));
+    const matchesType = typeFilter === 'All' || s.type === typeFilter;
+    const matchesCommunityOnly = !communityOnly || (s.targetCommunity && s.targetCommunity.toLowerCase() !== 'general' && s.targetCommunity.toLowerCase() !== 'none');
+    
+    const matchesProvider = providerFilter === 'All' || s.provider.toLowerCase().includes(providerFilter.toLowerCase());
+    const matchesCommunity = communityFilter === 'All' || (s.targetCommunity && s.targetCommunity.toLowerCase().includes(communityFilter.toLowerCase()));
+    
+    let matchesAmount = true;
+    if (amountFilter !== 'All') {
+      const amount = parseAmount(m.localCurrencyAmount || s.amount);
+      if (amountFilter === '0-1000') matchesAmount = amount <= 1000;
+      else if (amountFilter === '1000-5000') matchesAmount = amount > 1000 && amount <= 5000;
+      else if (amountFilter === '5000-10000') matchesAmount = amount > 5000 && amount <= 10000;
+      else if (amountFilter === '10000+') matchesAmount = amount > 10000;
+    }
+
     const matchesSearch = s.title.toLowerCase().includes(searchQuery.toLowerCase()) || 
                          s.provider.toLowerCase().includes(searchQuery.toLowerCase()) ||
+                         s.description.toLowerCase().includes(searchQuery.toLowerCase()) ||
+                         s.eligibilityCriteria.toLowerCase().includes(searchQuery.toLowerCase()) ||
                          (s.targetCommunity && s.targetCommunity.toLowerCase().includes(searchQuery.toLowerCase()));
-    return matchesFilter && matchesScope && matchesCommunity && matchesSearch;
+    
+    return matchesFilter && matchesScope && matchesMajor && matchesGpa && matchesLocation && 
+           matchesType && matchesCommunityOnly && matchesSearch && matchesProvider && 
+           matchesCommunity && matchesAmount;
   }).sort((a, b) => {
     // Primary sort: Scope (State > National > Global)
     const scopePriority = { 'State': 1, 'National': 2, 'Global': 3 };
@@ -143,9 +202,14 @@ export default function App() {
       return scopeA - scopeB;
     }
 
-    // Secondary sort: Match Score or Deadline
+    // Secondary sort: Match Score, Deadline, or Amount
     if (sortBy === 'Match') {
       return b.match.matchScore - a.match.matchScore;
+    }
+    if (sortBy === 'AmountDesc') {
+      const amountA = parseAmount(a.match.localCurrencyAmount || a.scholarship.amount);
+      const amountB = parseAmount(b.match.localCurrencyAmount || b.scholarship.amount);
+      return amountB - amountA;
     }
     const dateA = parseDeadline(a.scholarship.deadline);
     const dateB = parseDeadline(b.scholarship.deadline);
@@ -153,10 +217,31 @@ export default function App() {
   });
 
   const handleApply = (id: string) => {
-    if (!appliedIds.includes(id)) {
-      setAppliedIds(prev => [...prev, id]);
+    const existing = applications.find(a => a.scholarshipId === id);
+    if (!existing) {
+      handleUpdateApplicationStatus(id, 'In Progress');
     }
     setIsAssistantOpen(true);
+  };
+
+  const handleUpdateApplicationStatus = (id: string, status: ApplicationStatus) => {
+    setApplications(prev => {
+      const existing = prev.find(a => a.scholarshipId === id);
+      if (existing) {
+        return prev.map(a => a.scholarshipId === id ? { ...a, status, updatedAt: new Date().toISOString() } : a);
+      }
+      return [...prev, { scholarshipId: id, status, updatedAt: new Date().toISOString(), notes: '' }];
+    });
+  };
+
+  const handleUpdateApplicationNotes = (id: string, notes: string) => {
+    setApplications(prev => {
+      const existing = prev.find(a => a.scholarshipId === id);
+      if (existing) {
+        return prev.map(a => a.scholarshipId === id ? { ...a, notes, updatedAt: new Date().toISOString() } : a);
+      }
+      return prev;
+    });
   };
 
   const handleSave = (id: string) => {
@@ -165,6 +250,13 @@ export default function App() {
         return prev.filter(i => i !== id);
       }
       return [...prev, id];
+    });
+  };
+
+  const handleView = (id: string) => {
+    setViewedIds(prev => {
+      const filtered = prev.filter(i => i !== id);
+      return [id, ...filtered].slice(0, 20); // Keep last 20 views
     });
   };
 
@@ -329,10 +421,15 @@ export default function App() {
                 <p className="text-slate-500 font-medium">Visualizing your scholarship journey and AI-detected interests.</p>
               </div>
               <Dashboard 
-                results={results} 
+                results={filteredResults} 
                 profile={profile} 
-                appliedIds={appliedIds} 
+                applications={applications} 
                 searchHistory={searchHistory}
+                viewedIds={viewedIds}
+                savedIds={savedIds}
+                onApply={handleApply}
+                onUpdateStatus={handleUpdateApplicationStatus}
+                onSave={handleSave}
               />
             </motion.div>
           ) : view === 'Applications' ? (
@@ -346,7 +443,7 @@ export default function App() {
               <div className="flex flex-col md:flex-row md:items-center justify-between gap-8">
                 <div className="space-y-2">
                   <h2 className="text-4xl font-black text-slate-900 tracking-tight">My Applications</h2>
-                  <p className="text-slate-500 font-medium">Tracking {appliedIds.length} scholarships you've started or completed.</p>
+                  <p className="text-slate-500 font-medium">Tracking {applications.length} scholarships you've started or completed.</p>
                 </div>
                 <button 
                   onClick={() => setView('Results')}
@@ -356,16 +453,19 @@ export default function App() {
                 </button>
               </div>
 
-              {appliedIds.length > 0 ? (
+              {applications.length > 0 ? (
                 <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-8">
                   {results
-                    .filter(r => appliedIds.includes(r.scholarship.id))
+                    .filter(r => applications.some(a => a.scholarshipId === r.scholarship.id))
                     .map((result) => (
                       <ScholarshipCard
                         key={result.scholarship.id}
                         scholarship={result.scholarship}
                         match={result.match}
-                        isApplied={true}
+                        applicationStatus={applications.find(a => a.scholarshipId === result.scholarship.id)?.status}
+                        onUpdateStatus={handleUpdateApplicationStatus}
+                        onUpdateNotes={handleUpdateApplicationNotes}
+                        initialNotes={applications.find(a => a.scholarshipId === result.scholarship.id)?.notes}
                         onApply={handleApply}
                         onSave={handleSave}
                         isSaved={savedIds.includes(result.scholarship.id)}
@@ -418,7 +518,10 @@ export default function App() {
                         key={result.scholarship.id}
                         scholarship={result.scholarship}
                         match={result.match}
-                        isApplied={appliedIds.includes(result.scholarship.id)}
+                        applicationStatus={applications.find(a => a.scholarshipId === result.scholarship.id)?.status}
+                        onUpdateStatus={handleUpdateApplicationStatus}
+                        onUpdateNotes={handleUpdateApplicationNotes}
+                        initialNotes={applications.find(a => a.scholarshipId === result.scholarship.id)?.notes}
                         onApply={handleApply}
                         onSave={handleSave}
                         isSaved={true}
@@ -487,43 +590,62 @@ export default function App() {
                       <Search className="absolute left-4 top-1/2 -translate-y-1/2 text-slate-300" size={18} />
                       <input
                         type="text"
-                        placeholder="Search title or provider..."
+                        placeholder="Search keywords, title, provider..."
                         value={searchQuery}
                         onChange={(e) => setSearchQuery(e.target.value)}
                         className="pl-12 pr-6 py-3.5 bg-slate-50 border border-slate-100 rounded-2xl focus:outline-none focus:ring-2 focus:ring-indigo-500/20 focus:border-indigo-400 transition-all text-sm font-medium w-full md:w-64"
                       />
+                      {searchHistory.length > 0 && (
+                        <div className="absolute top-full left-0 mt-2 flex flex-wrap gap-2 z-20">
+                          {searchHistory.map((query, idx) => (
+                            <button
+                              key={idx}
+                              onClick={() => setSearchQuery(query)}
+                              className="px-3 py-1 bg-white border border-slate-100 hover:border-indigo-200 text-slate-400 hover:text-indigo-600 rounded-full text-[10px] font-bold transition-all flex items-center gap-1.5 shadow-sm"
+                            >
+                              <Clock size={10} /> {query}
+                            </button>
+                          ))}
+                        </div>
+                      )}
                     </div>
                     
-                    <div className="flex items-center gap-2 p-1 bg-slate-50 rounded-2xl border border-slate-100">
-                      {(['All', 'Government', 'Private'] as const).map((cat) => (
-                        <button
-                          key={cat}
-                          onClick={() => setFilter(cat)}
-                          className={`px-6 py-2.5 rounded-xl text-[10px] font-black uppercase tracking-widest transition-all ${
-                            filter === cat 
-                              ? 'bg-white text-indigo-600 shadow-sm' 
-                              : 'text-slate-400 hover:text-slate-600'
-                          }`}
-                        >
-                          {cat}
-                        </button>
-                      ))}
+                    <div className="flex items-center gap-4">
+                      <span className="text-[10px] font-black uppercase tracking-widest text-slate-400 whitespace-nowrap">Source:</span>
+                      <div className="flex items-center gap-2 p-1 bg-slate-50 rounded-2xl border border-slate-100">
+                        {(['All', 'Government', 'Private'] as const).map((cat) => (
+                          <button
+                            key={cat}
+                            onClick={() => setFilter(cat)}
+                            className={`px-6 py-2.5 rounded-xl text-[10px] font-black uppercase tracking-widest transition-all ${
+                              filter === cat 
+                                ? 'bg-white text-indigo-600 shadow-sm' 
+                                : 'text-slate-400 hover:text-slate-600'
+                            }`}
+                          >
+                            {cat}
+                          </button>
+                        ))}
+                      </div>
                     </div>
 
-                    <div className="flex items-center gap-2 p-1 bg-slate-50 rounded-2xl border border-slate-100">
-                      {(['All', 'State', 'National', 'Global'] as const).map((scope) => (
-                        <button
-                          key={scope}
-                          onClick={() => setScopeFilter(scope)}
-                          className={`px-4 py-2.5 rounded-xl text-[10px] font-black uppercase tracking-widest transition-all ${
-                            scopeFilter === scope 
-                              ? 'bg-white text-indigo-600 shadow-sm' 
-                              : 'text-slate-400 hover:text-slate-600'
-                          }`}
-                        >
-                          {scope}
-                        </button>
-                      ))}
+                    <div className="flex items-center gap-4">
+                      <span className="text-[10px] font-black uppercase tracking-widest text-slate-400 whitespace-nowrap">Region:</span>
+                      <div className="flex items-center gap-2 p-1 bg-slate-50 rounded-2xl border border-slate-100">
+                        {(['All', 'State', 'National', 'Global'] as const).map((scope) => (
+                          <button
+                            key={scope}
+                            onClick={() => setScopeFilter(scope)}
+                            className={`px-4 py-2.5 rounded-xl text-[10px] font-black uppercase tracking-widest transition-all ${
+                              scopeFilter === scope 
+                                ? 'bg-white text-indigo-600 shadow-sm' 
+                                : 'text-slate-400 hover:text-slate-600'
+                            }`}
+                          >
+                            {scope}
+                          </button>
+                        ))}
+                      </div>
                     </div>
 
                     <div className="flex items-center gap-2 p-1 bg-slate-50 rounded-2xl border border-slate-100">
@@ -533,10 +655,22 @@ export default function App() {
                         className="bg-transparent border-none text-[10px] font-black uppercase tracking-widest text-slate-600 focus:ring-0 px-4 py-2 cursor-pointer outline-none"
                       >
                         <option value="Match">Sort: Match Score</option>
+                        <option value="AmountDesc">Sort: Amount (High to Low)</option>
                         <option value="DeadlineAsc">Sort: Deadline (Closest)</option>
                         <option value="DeadlineDesc">Sort: Deadline (Furthest)</option>
                       </select>
                     </div>
+
+                    <button
+                      onClick={() => setShowAdvancedFilters(!showAdvancedFilters)}
+                      className={`px-6 py-3.5 rounded-2xl text-[10px] font-black uppercase tracking-widest transition-all border flex items-center gap-2 ${
+                        showAdvancedFilters 
+                          ? 'bg-indigo-600 text-white border-indigo-600 shadow-lg shadow-indigo-200' 
+                          : 'bg-white text-slate-400 border-slate-100 hover:border-indigo-200'
+                      }`}
+                    >
+                      <Filter size={14} /> {showAdvancedFilters ? 'Hide Filters' : 'More Filters'}
+                    </button>
 
                     <button
                       onClick={() => setCommunityOnly(!communityOnly)}
@@ -550,7 +684,152 @@ export default function App() {
                     </button>
                   </div>
                 </div>
+
+                <AnimatePresence>
+                  {showAdvancedFilters && (
+                    <motion.div
+                      initial={{ height: 0, opacity: 0 }}
+                      animate={{ height: 'auto', opacity: 1 }}
+                      exit={{ height: 0, opacity: 0 }}
+                      className="mt-8 pt-8 border-t border-slate-50 overflow-hidden"
+                    >
+                      <div className="grid grid-cols-1 md:grid-cols-4 gap-6">
+                        <div className="space-y-2">
+                          <label className="text-[10px] font-black uppercase tracking-widest text-slate-400 ml-1">Major / Field</label>
+                          <input
+                            type="text"
+                            placeholder="e.g. Computer Science"
+                            value={majorFilter === 'All' ? '' : majorFilter}
+                            onChange={(e) => setMajorFilter(e.target.value || 'All')}
+                            className="w-full px-4 py-3 bg-slate-50 border border-slate-100 rounded-xl focus:outline-none focus:ring-2 focus:ring-indigo-500/20 text-xs font-medium"
+                          />
+                        </div>
+                        <div className="space-y-2">
+                          <label className="text-[10px] font-black uppercase tracking-widest text-slate-400 ml-1">Max Min GPA</label>
+                          <select
+                            value={gpaFilter}
+                            onChange={(e) => setGpaFilter(e.target.value)}
+                            className="w-full px-4 py-3 bg-slate-50 border border-slate-100 rounded-xl focus:outline-none focus:ring-2 focus:ring-indigo-500/20 text-xs font-medium"
+                          >
+                            <option value="All">Any CGPA</option>
+                            <option value="5.0">Up to 5.0</option>
+                            <option value="6.0">Up to 6.0</option>
+                            <option value="7.0">Up to 7.0</option>
+                            <option value="8.0">Up to 8.0</option>
+                            <option value="9.0">Up to 9.0</option>
+                            <option value="10.0">Up to 10.0</option>
+                          </select>
+                        </div>
+                        <div className="space-y-2">
+                          <label className="text-[10px] font-black uppercase tracking-widest text-slate-400 ml-1">Location</label>
+                          <input
+                            type="text"
+                            placeholder="e.g. California"
+                            value={locationFilter === 'All' ? '' : locationFilter}
+                            onChange={(e) => setLocationFilter(e.target.value || 'All')}
+                            className="w-full px-4 py-3 bg-slate-50 border border-slate-100 rounded-xl focus:outline-none focus:ring-2 focus:ring-indigo-500/20 text-xs font-medium"
+                          />
+                        </div>
+                        <div className="space-y-2">
+                          <label className="text-[10px] font-black uppercase tracking-widest text-slate-400 ml-1">Scholarship Type</label>
+                          <select
+                            value={typeFilter}
+                            onChange={(e) => setTypeFilter(e.target.value as any)}
+                            className="w-full px-4 py-3 bg-slate-50 border border-slate-100 rounded-xl focus:outline-none focus:ring-2 focus:ring-indigo-500/20 text-xs font-medium"
+                          >
+                            <option value="All">All Types</option>
+                            <option value="Merit-based">Merit-based</option>
+                            <option value="Need-based">Need-based</option>
+                            <option value="Other">Other</option>
+                          </select>
+                        </div>
+
+                        {/* New Filters */}
+                        <div className="space-y-2">
+                          <label className="text-[10px] font-black uppercase tracking-widest text-slate-400 ml-1">Amount Range</label>
+                          <select
+                            value={amountFilter}
+                            onChange={(e) => setAmountFilter(e.target.value)}
+                            className="w-full px-4 py-3 bg-slate-50 border border-slate-100 rounded-xl focus:outline-none focus:ring-2 focus:ring-indigo-500/20 text-xs font-medium"
+                          >
+                            <option value="All">Any Amount</option>
+                            <option value="0-1000">Up to 1,000</option>
+                            <option value="1000-5000">1,000 - 5,000</option>
+                            <option value="5000-10000">5,000 - 10,000</option>
+                            <option value="10000+">10,000+</option>
+                          </select>
+                        </div>
+                        <div className="space-y-2">
+                          <label className="text-[10px] font-black uppercase tracking-widest text-slate-400 ml-1">Specific Provider</label>
+                          <input
+                            type="text"
+                            placeholder="e.g. Google, Tata"
+                            value={providerFilter === 'All' ? '' : providerFilter}
+                            onChange={(e) => setProviderFilter(e.target.value || 'All')}
+                            className="w-full px-4 py-3 bg-slate-50 border border-slate-100 rounded-xl focus:outline-none focus:ring-2 focus:ring-indigo-500/20 text-xs font-medium"
+                          />
+                        </div>
+                        <div className="space-y-2">
+                          <label className="text-[10px] font-black uppercase tracking-widest text-slate-400 ml-1">Target Community</label>
+                          <input
+                            type="text"
+                            placeholder="e.g. STEM, Minority"
+                            value={communityFilter === 'All' ? '' : communityFilter}
+                            onChange={(e) => setCommunityFilter(e.target.value || 'All')}
+                            className="w-full px-4 py-3 bg-slate-50 border border-slate-100 rounded-xl focus:outline-none focus:ring-2 focus:ring-indigo-500/20 text-xs font-medium"
+                          />
+                        </div>
+                      </div>
+                      <div className="mt-6 flex justify-end">
+                        <button
+                          onClick={() => {
+                            setMajorFilter('All');
+                            setGpaFilter('All');
+                            setLocationFilter('All');
+                            setTypeFilter('All');
+                            setAmountFilter('All');
+                            setProviderFilter('All');
+                            setCommunityFilter('All');
+                          }}
+                          className="text-[10px] font-black uppercase tracking-widest text-rose-500 hover:text-rose-700 transition-colors"
+                        >
+                          Reset Advanced Filters
+                        </button>
+                      </div>
+                    </motion.div>
+                  )}
+                </AnimatePresence>
               </div>
+
+              {error && (
+                <motion.div 
+                  initial={{ opacity: 0, y: 20 }}
+                  animate={{ opacity: 1, y: 0 }}
+                  className="bg-rose-50 border border-rose-100 p-8 rounded-[2.5rem] text-center"
+                >
+                  <div className="w-16 h-16 bg-white text-rose-500 rounded-2xl flex items-center justify-center mx-auto mb-6 shadow-sm">
+                    <AlertTriangle size={32} />
+                  </div>
+                  <h3 className="text-xl font-black text-slate-900 mb-2">Something went wrong</h3>
+                  <p className="text-slate-600 font-medium max-w-lg mx-auto mb-8 leading-relaxed">
+                    {error}
+                  </p>
+                  <div className="flex flex-wrap justify-center gap-4">
+                    <button 
+                      onClick={() => profile && handleProfileSubmit(profile)}
+                      className="px-8 py-3 bg-indigo-600 text-white rounded-2xl text-xs font-black uppercase tracking-widest shadow-xl shadow-indigo-100 hover:bg-indigo-700 transition-all"
+                    >
+                      Try Again
+                    </button>
+                    <button 
+                      onClick={() => setView('Profile')}
+                      className="px-8 py-3 bg-white text-slate-600 border border-slate-100 rounded-2xl text-xs font-black uppercase tracking-widest hover:bg-slate-50 transition-all"
+                    >
+                      Update Profile
+                    </button>
+                  </div>
+                </motion.div>
+              )}
 
               {isLoading ? (
                 <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-8">
@@ -566,9 +845,13 @@ export default function App() {
                       scholarship={item.scholarship} 
                       match={item.match} 
                       onApply={handleApply}
-                      isApplied={appliedIds.includes(item.scholarship.id)}
+                      applicationStatus={applications.find(a => a.scholarshipId === item.scholarship.id)?.status}
+                      onUpdateStatus={handleUpdateApplicationStatus}
+                      onUpdateNotes={handleUpdateApplicationNotes}
+                      initialNotes={applications.find(a => a.scholarshipId === item.scholarship.id)?.notes}
                       onSave={handleSave}
                       isSaved={savedIds.includes(item.scholarship.id)}
+                      onView={handleView}
                     />
                   ))}
                 </div>

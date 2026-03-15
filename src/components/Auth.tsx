@@ -10,9 +10,9 @@ interface AuthProps {
 export const Auth: React.FC<AuthProps> = ({ onLogin }) => {
   const [isLogin, setIsLogin] = useState(true);
   const [isForgotPassword, setIsForgotPassword] = useState(false);
+  const [isResetVerifying, setIsResetVerifying] = useState(false);
   const [isResetMode, setIsResetMode] = useState(false);
   const [isVerifying, setIsVerifying] = useState(false);
-  const [resetEmailSent, setResetEmailSent] = useState(false);
   const [verificationCode, setVerificationCode] = useState('');
   const [generatedCode, setGeneratedCode] = useState('');
   const [newPassword, setNewPassword] = useState('');
@@ -22,81 +22,150 @@ export const Auth: React.FC<AuthProps> = ({ onLogin }) => {
   const [password, setPassword] = useState('');
   const [fullName, setFullName] = useState('');
   const [error, setError] = useState('');
+  const [loading, setLoading] = useState(false);
 
-  const handleSubmit = (e: React.FormEvent) => {
+  React.useEffect(() => {
+    const handleMessage = (event: MessageEvent) => {
+      // Validate origin is from AI Studio preview or localhost
+      const origin = event.origin;
+      if (!origin.endsWith('.run.app') && !origin.includes('localhost')) {
+        return;
+      }
+      if (event.data?.type === 'OAUTH_AUTH_SUCCESS') {
+        onLogin(event.data.user);
+      }
+    };
+    window.addEventListener('message', handleMessage);
+    return () => window.removeEventListener('message', handleMessage);
+  }, [onLogin]);
+
+  const handleGoogleSignIn = async () => {
+    setError('');
+    setLoading(true);
+    try {
+      const response = await fetch('/api/auth/google/url');
+      if (!response.ok) {
+        const data = await response.json();
+        throw new Error(data.error || 'Failed to get auth URL');
+      }
+      const { url } = await response.json();
+      
+      const width = 500;
+      const height = 600;
+      const left = window.screenX + (window.outerWidth - width) / 2;
+      const top = window.screenY + (window.outerHeight - height) / 2;
+      
+      window.open(
+        url,
+        'google_oauth',
+        `width=${width},height=${height},left=${left},top=${top}`
+      );
+    } catch (err: any) {
+      setError(err.message || 'Google Sign-in failed');
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
     setError('');
+    setLoading(true);
 
-    if (isVerifying) {
-      if (verificationCode === generatedCode) {
-        const users = JSON.parse(localStorage.getItem('scholar_users') || '[]');
-        const newUser: User = {
-          id: Math.random().toString(36).substr(2, 9),
-          email,
-          password,
-          fullName,
-          phoneNumber,
-        };
-        localStorage.setItem('scholar_users', JSON.stringify([...users, newUser]));
-        onLogin(newUser);
-      } else {
-        setError('Invalid verification code');
-      }
-      return;
-    }
-
-    if (isResetMode) {
-      if (newPassword !== confirmPassword) {
-        setError('Passwords do not match');
+    try {
+      if (isVerifying) {
+        const response = await fetch('/api/auth/signup', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ email, password, fullName, phoneNumber, code: verificationCode }),
+        });
+        const data = await response.json();
+        if (response.ok) {
+          onLogin(data);
+        } else {
+          setError(data.error || 'Signup failed');
+        }
         return;
       }
-      const users = JSON.parse(localStorage.getItem('scholar_users') || '[]');
-      const userIndex = users.findIndex((u: any) => u.email === email);
-      if (userIndex !== -1) {
-        users[userIndex].password = newPassword;
-        localStorage.setItem('scholar_users', JSON.stringify(users));
-        setIsResetMode(false);
-        setIsLogin(true);
-        setError('');
-        alert('Password reset successfully! Please log in with your new password.');
-      } else {
-        setError('User not found');
-      }
-      return;
-    }
 
-    if (isForgotPassword) {
-      const users = JSON.parse(localStorage.getItem('scholar_users') || '[]');
-      const user = users.find((u: any) => u.email === email);
-      if (user) {
-        // Simulate email sending
-        setResetEmailSent(true);
-      } else {
-        setError('No account found with this email');
-      }
-      return;
-    }
-
-    if (isLogin) {
-      const users = JSON.parse(localStorage.getItem('scholar_users') || '[]');
-      const user = users.find((u: any) => u.email === email && u.password === password);
-      if (user) {
-        onLogin(user);
-      } else {
-        setError('Invalid email or password');
-      }
-    } else {
-      const users = JSON.parse(localStorage.getItem('scholar_users') || '[]');
-      if (users.find((u: any) => u.email === email)) {
-        setError('User already exists');
+      if (isResetMode) {
+        if (newPassword !== confirmPassword) {
+          setError('Passwords do not match');
+          return;
+        }
+        const response = await fetch('/api/auth/reset-password', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ email, code: verificationCode, newPassword }),
+        });
+        const data = await response.json();
+        if (response.ok) {
+          setIsResetMode(false);
+          setIsLogin(true);
+          setError('');
+          alert('Password reset successfully! Please log in with your new password.');
+        } else {
+          setError(data.error || 'Reset failed');
+        }
         return;
       }
-      
-      // Generate and "send" code
-      const code = Math.floor(100000 + Math.random() * 900000).toString();
-      setGeneratedCode(code);
-      setIsVerifying(true);
-      setError('');
+
+      if (isResetVerifying) {
+        // We'll just move to reset mode, the server will verify the code during the final reset step
+        setIsResetVerifying(false);
+        setIsResetMode(true);
+        return;
+      }
+
+      if (isForgotPassword) {
+        const response = await fetch('/api/auth/forgot-password', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ email }),
+        });
+        const data = await response.json();
+        if (response.ok) {
+          setGeneratedCode(data.demoCode);
+          setIsForgotPassword(false);
+          setIsResetVerifying(true);
+        } else {
+          setError(data.error || 'User not found');
+        }
+        return;
+      }
+
+      if (isLogin) {
+        const response = await fetch('/api/auth/login', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ email, password }),
+        });
+        const data = await response.json();
+        if (response.ok) {
+          onLogin(data);
+        } else {
+          setError(data.error || 'Invalid email or password');
+        }
+      } else {
+        // Signup flow - first verify email
+        const response = await fetch('/api/auth/send-verification', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ email }),
+        });
+        const data = await response.json();
+        if (response.ok) {
+          setGeneratedCode(data.demoCode);
+          setIsVerifying(true);
+          setError('');
+        } else {
+          setError(data.error || 'Failed to send verification code');
+        }
+      }
+    } catch (err) {
+      setError('Connection error. Please try again.');
+    } finally {
+      setLoading(false);
     }
   };
 
@@ -123,29 +192,69 @@ export const Auth: React.FC<AuthProps> = ({ onLogin }) => {
             <Sparkles className="text-white" size={40} />
           </motion.div>
           <h2 className="text-4xl font-black text-slate-900 tracking-tight mb-3">
-            {isVerifying ? 'Verification' : isResetMode ? 'New Password' : isForgotPassword ? 'Reset Password' : isLogin ? 'Welcome Back' : 'Get Started'}
+            {isVerifying || isResetVerifying ? 'Verification' : isResetMode ? 'New Password' : isForgotPassword ? 'Reset Password' : isLogin ? 'Welcome Back' : 'Get Started'}
           </h2>
           <p className="text-slate-500 font-medium">
-            {isVerifying
-              ? `Enter the 6-digit code sent to ${email} and ${phoneNumber}`
+            {isVerifying || isResetVerifying
+              ? `Enter the 6-digit code sent to ${email}`
               : isResetMode
                 ? 'Create a strong new password for your account'
                 : isForgotPassword 
-                  ? 'Enter your email to receive a reset link' 
+                  ? 'Enter your email to receive a reset code' 
                   : isLogin 
                     ? 'Sign in to access your scholarship matches' 
                     : 'Join ScholarMatch AI to find your funding'}
           </p>
         </div>
 
-        {isVerifying ? (
+        {!isVerifying && !isResetVerifying && !isResetMode && (
+          <div className="mb-8 space-y-4">
+            <button
+              onClick={handleGoogleSignIn}
+              disabled={loading}
+              className="w-full py-4 bg-white border border-slate-200 hover:bg-slate-50 text-slate-700 font-bold rounded-2xl transition-all flex items-center justify-center gap-3 shadow-sm group disabled:opacity-50"
+            >
+              <svg className="w-5 h-5" viewBox="0 0 24 24">
+                <path
+                  fill="currentColor"
+                  d="M22.56 12.25c0-.78-.07-1.53-.2-2.25H12v4.26h5.92c-.26 1.37-1.04 2.53-2.21 3.31v2.77h3.57c2.08-1.92 3.28-4.74 3.28-8.09z"
+                />
+                <path
+                  fill="currentColor"
+                  d="M12 23c2.97 0 5.46-.98 7.28-2.66l-3.57-2.77c-.98.66-2.23 1.06-3.71 1.06-2.86 0-5.29-1.93-6.16-4.53H2.18v2.84C3.99 20.53 7.7 23 12 23z"
+                />
+                <path
+                  fill="currentColor"
+                  d="M5.84 14.09c-.22-.66-.35-1.36-.35-2.09s.13-1.43.35-2.09V7.07H2.18C1.43 8.55 1 10.22 1 12s.43 3.45 1.18 4.93l3.66-2.84z"
+                />
+                <path
+                  fill="currentColor"
+                  d="M12 5.38c1.62 0 3.06.56 4.21 1.64l3.15-3.15C17.45 2.09 14.97 1 12 1 7.7 1 3.99 3.47 2.18 7.07l3.66 2.84c.87-2.6 3.3-4.53 6.16-4.53z"
+                />
+              </svg>
+              Continue with Google
+            </button>
+            <div className="relative">
+              <div className="absolute inset-0 flex items-center">
+                <div className="w-full border-t border-slate-100"></div>
+              </div>
+              <div className="relative flex justify-center text-xs uppercase">
+                <span className="bg-white px-4 text-slate-400 font-black tracking-widest">Or continue with email</span>
+              </div>
+            </div>
+          </div>
+        )}
+
+        {isVerifying || isResetVerifying ? (
           <motion.div 
             initial={{ opacity: 0, y: 10 }}
             animate={{ opacity: 1, y: 0 }}
             className="space-y-8"
           >
             <div className="bg-indigo-50 p-6 rounded-[2rem] border border-indigo-100 text-center">
-              <p className="text-xs text-indigo-600 font-black uppercase tracking-widest mb-2">Demo OTP (Phone & Email)</p>
+              <p className="text-xs text-indigo-600 font-black uppercase tracking-widest mb-2">
+                {isResetVerifying ? 'Reset Code' : 'Demo OTP (Phone & Email)'}
+              </p>
               <p className="text-4xl font-black text-indigo-600 tracking-[0.5em] ml-[0.5em]">{generatedCode}</p>
             </div>
             
@@ -175,61 +284,25 @@ export const Auth: React.FC<AuthProps> = ({ onLogin }) => {
 
               <button
                 type="submit"
-                className="w-full py-5 bg-indigo-600 hover:bg-indigo-700 text-white font-black rounded-2xl transition-all shadow-xl shadow-indigo-100 flex items-center justify-center gap-3 text-sm uppercase tracking-widest group"
+                disabled={loading}
+                className="w-full py-5 bg-indigo-600 hover:bg-indigo-700 text-white font-black rounded-2xl transition-all shadow-xl shadow-indigo-100 flex items-center justify-center gap-3 text-sm uppercase tracking-widest group disabled:opacity-50"
               >
-                Verify & Create Account
+                {loading ? 'Verifying...' : isResetVerifying ? 'Verify Code' : 'Verify & Create Account'}
                 <ArrowRight size={18} className="group-hover:translate-x-1 transition-transform" />
               </button>
 
               <button
                 type="button"
-                onClick={() => setIsVerifying(false)}
+                onClick={() => {
+                  setIsVerifying(false);
+                  setIsResetVerifying(false);
+                  if (isResetVerifying) setIsForgotPassword(true);
+                }}
                 className="w-full text-center text-slate-400 font-bold text-xs hover:text-slate-600 transition-colors"
               >
-                Back to Sign Up
+                {isResetVerifying ? 'Back to Email' : 'Back to Sign Up'}
               </button>
             </form>
-          </motion.div>
-        ) : resetEmailSent && !isResetMode ? (
-          <motion.div 
-            initial={{ opacity: 0, y: 10 }}
-            animate={{ opacity: 1, y: 0 }}
-            className="text-center space-y-6"
-          >
-            <div className="w-16 h-16 bg-emerald-50 text-emerald-500 rounded-2xl flex items-center justify-center mx-auto">
-              <Mail size={32} />
-            </div>
-            <div className="space-y-2">
-              <h3 className="text-xl font-black text-slate-900">Check your email</h3>
-              <p className="text-slate-500 text-sm font-medium">
-                We've sent a password reset link to <span className="text-indigo-600 font-bold">{email}</span>.
-              </p>
-              <p className="text-[10px] text-slate-400 italic mt-4">
-                (Demo: Click the button below to simulate clicking the link in your email)
-              </p>
-            </div>
-            <div className="space-y-3">
-              <button
-                onClick={() => {
-                  setResetEmailSent(false);
-                  setIsForgotPassword(false);
-                  setIsResetMode(true);
-                }}
-                className="w-full py-4 bg-indigo-600 text-white font-black rounded-2xl uppercase tracking-widest text-xs shadow-lg shadow-indigo-100"
-              >
-                Simulate Reset Link Click
-              </button>
-              <button
-                onClick={() => {
-                  setResetEmailSent(false);
-                  setIsForgotPassword(false);
-                  setIsLogin(true);
-                }}
-                className="w-full py-4 bg-slate-50 text-slate-400 font-black rounded-2xl uppercase tracking-widest text-xs"
-              >
-                Back to Login
-              </button>
-            </div>
           </motion.div>
         ) : (
           <form onSubmit={handleSubmit} className="space-y-6">
@@ -365,9 +438,10 @@ export const Auth: React.FC<AuthProps> = ({ onLogin }) => {
 
             <button
               type="submit"
-              className="w-full py-5 bg-indigo-600 hover:bg-indigo-700 text-white font-black rounded-2xl transition-all shadow-xl shadow-indigo-100 flex items-center justify-center gap-3 text-sm uppercase tracking-widest group"
+              disabled={loading}
+              className="w-full py-5 bg-indigo-600 hover:bg-indigo-700 text-white font-black rounded-2xl transition-all shadow-xl shadow-indigo-100 flex items-center justify-center gap-3 text-sm uppercase tracking-widest group disabled:opacity-50"
             >
-              {isResetMode ? 'Reset Password' : isForgotPassword ? 'Send Reset Link' : isLogin ? 'Welcome' : 'Create Account'}
+              {loading ? 'Processing...' : isResetMode ? 'Reset Password' : isForgotPassword ? 'Send Reset Code' : isLogin ? 'Welcome' : 'Create Account'}
               <ArrowRight size={18} className="group-hover:translate-x-1 transition-transform" />
             </button>
             
@@ -394,7 +468,8 @@ export const Auth: React.FC<AuthProps> = ({ onLogin }) => {
               onClick={() => {
                 setIsLogin(!isLogin);
                 setIsForgotPassword(false);
-                setResetEmailSent(false);
+                setIsResetVerifying(false);
+                setIsResetMode(false);
               }}
               className="ml-2 text-indigo-600 font-black hover:text-indigo-800 transition-colors uppercase tracking-widest text-[10px]"
             >

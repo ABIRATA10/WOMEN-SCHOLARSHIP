@@ -12,6 +12,7 @@ interface ProfileFormProps {
 export const ProfileForm: React.FC<ProfileFormProps> = ({ onSubmit, isLoading, initialData }) => {
   const [formData, setFormData] = React.useState<UserProfile>(initialData || {
     fullName: '',
+    phoneNumber: '',
     age: 20,
     gender: 'Female',
     educationLevel: 'Undergraduate',
@@ -28,6 +29,10 @@ export const ProfileForm: React.FC<ProfileFormProps> = ({ onSubmit, isLoading, i
     background: '',
     careerGoals: '',
     profileDeadline: '',
+    languagesSpoken: '',
+    volunteerExperience: '',
+    extracurriculars: '',
+    awards: '',
   });
 
   const [isFetchingAddress, setIsFetchingAddress] = React.useState(false);
@@ -262,6 +267,19 @@ export const ProfileForm: React.FC<ProfileFormProps> = ({ onSubmit, isLoading, i
           </div>
 
           <div className="space-y-1">
+            <label className={labelClasses('text-rose-500')}>
+              Phone Number
+            </label>
+            <input
+              name="phoneNumber"
+              value={formData.phoneNumber || ''}
+              onChange={handleChange}
+              className={inputClasses}
+              placeholder="e.g. +91 98765 43210"
+            />
+          </div>
+
+          <div className="space-y-1">
             <label className={labelClasses('text-rose-500', true)}>
               Gender
             </label>
@@ -372,7 +390,7 @@ export const ProfileForm: React.FC<ProfileFormProps> = ({ onSubmit, isLoading, i
 
           <div className="space-y-1">
             <label className={labelClasses('text-rose-500', true)}>
-              GPA / Academic Standing
+              CGPA / Academic Standing (out of 10.0)
             </label>
             <input
               required
@@ -380,7 +398,7 @@ export const ProfileForm: React.FC<ProfileFormProps> = ({ onSubmit, isLoading, i
               value={formData.gpa}
               onChange={handleChange}
               className={inputClasses}
-              placeholder="e.g. 3.8/4.0"
+              placeholder="e.g. 8.5/10.0"
             />
           </div>
           
@@ -449,6 +467,70 @@ export const ProfileForm: React.FC<ProfileFormProps> = ({ onSubmit, isLoading, i
             rows={3}
             className={inputClasses}
             placeholder="What are your long-term professional aspirations?"
+          />
+        </div>
+      </div>
+
+      <div className="relative z-10 pt-10 border-t border-slate-100 space-y-8">
+        <div className="flex items-center gap-3 mb-2">
+          <div className="w-10 h-10 bg-emerald-500 text-white rounded-2xl flex items-center justify-center shadow-lg shadow-emerald-200">
+            <Briefcase size={20} />
+          </div>
+          <h3 className="text-xl font-black text-slate-900">Additional Background Information</h3>
+        </div>
+        
+        <div className="space-y-1">
+          <label className={labelClasses('text-emerald-500')}>
+            Languages Spoken
+          </label>
+          <input
+            name="languagesSpoken"
+            value={formData.languagesSpoken || ''}
+            onChange={handleChange}
+            className={inputClasses}
+            placeholder="e.g. English, Hindi, Spanish..."
+          />
+        </div>
+
+        <div className="space-y-1">
+          <label className={labelClasses('text-emerald-500')}>
+            Volunteer Experience
+          </label>
+          <textarea
+            name="volunteerExperience"
+            value={formData.volunteerExperience || ''}
+            onChange={handleChange}
+            rows={3}
+            className={inputClasses}
+            placeholder="Describe any volunteer work or community service you've done..."
+          />
+        </div>
+
+        <div className="space-y-1">
+          <label className={labelClasses('text-emerald-500')}>
+            Extracurricular Activities
+          </label>
+          <textarea
+            name="extracurriculars"
+            value={formData.extracurriculars || ''}
+            onChange={handleChange}
+            rows={3}
+            className={inputClasses}
+            placeholder="Sports, clubs, music, arts, or other hobbies..."
+          />
+        </div>
+
+        <div className="space-y-1">
+          <label className={labelClasses('text-emerald-500')}>
+            Awards & Honors
+          </label>
+          <textarea
+            name="awards"
+            value={formData.awards || ''}
+            onChange={handleChange}
+            rows={3}
+            className={inputClasses}
+            placeholder="Academic awards, competitions, certifications, or recognitions..."
           />
         </div>
       </div>

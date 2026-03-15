@@ -1,6 +1,6 @@
 import React, { useState } from 'react';
 import { Scholarship, MatchResult, ApplicationStatus } from '../types';
-import { ExternalLink, Award, Calendar, Building2, CheckCircle2, AlertCircle, ChevronDown, ChevronUp, Info, Search, Share2, Check, Heart, Clock, Trophy, XCircle, Edit3, Save, X } from 'lucide-react';
+import { ExternalLink, Award, Calendar, Building2, CheckCircle2, AlertCircle, ChevronDown, ChevronUp, Info, Search, Share2, Check, Heart, Clock, Trophy, XCircle, Edit3, Save, X, Bell } from 'lucide-react';
 import { motion, AnimatePresence } from 'motion/react';
 
 interface ScholarshipCardProps {
@@ -14,6 +14,7 @@ interface ScholarshipCardProps {
   onSave?: (id: string) => void;
   isSaved?: boolean;
   onView?: (id: string) => void;
+  onSetReminder?: (scholarshipId: string, scholarshipTitle: string, time: string) => void;
 }
 
 export const ScholarshipCard: React.FC<ScholarshipCardProps> = ({ 
@@ -26,10 +27,13 @@ export const ScholarshipCard: React.FC<ScholarshipCardProps> = ({
   initialNotes = '',
   onSave, 
   isSaved,
-  onView
+  onView,
+  onSetReminder
 }) => {
   const [isExpanded, setIsExpanded] = useState(false);
   const [showNotes, setShowNotes] = useState(false);
+  const [showReminderPicker, setShowReminderPicker] = useState(false);
+  const [reminderTime, setReminderTime] = useState('');
   const [notes, setNotes] = useState(initialNotes);
   const [copied, setCopied] = useState(false);
   const isHighMatch = match && match.matchScore >= 80;
@@ -84,7 +88,7 @@ export const ScholarshipCard: React.FC<ScholarshipCardProps> = ({
         setIsExpanded(!isExpanded);
         onView?.(scholarship.id);
       }}
-      className={`bg-white rounded-[2.5rem] p-8 border border-slate-100 shadow-xl shadow-slate-200/50 hover:shadow-indigo-200/40 transition-all flex flex-col h-full group relative overflow-hidden cursor-pointer ${isPastDeadline ? 'opacity-75 grayscale-[0.2]' : ''}`}
+      className={`bg-white rounded-[2rem] md:rounded-[2.5rem] p-6 md:p-8 border border-slate-100 shadow-xl shadow-slate-200/50 hover:shadow-indigo-200/40 transition-all flex flex-col h-full group relative overflow-hidden cursor-pointer ${isPastDeadline ? 'opacity-75 grayscale-[0.2]' : ''}`}
     >
       {/* Decorative gradient corner */}
       <div className={`absolute -top-12 -right-12 w-24 h-24 blur-2xl opacity-20 group-hover:opacity-40 transition-opacity ${
@@ -219,7 +223,7 @@ export const ScholarshipCard: React.FC<ScholarshipCardProps> = ({
           {scholarship.description}
         </p>
 
-        <div className="flex items-center justify-between">
+        <div className="flex flex-wrap items-center gap-3">
           <button
             onClick={(e) => {
               e.stopPropagation();
@@ -228,46 +232,99 @@ export const ScholarshipCard: React.FC<ScholarshipCardProps> = ({
             className="flex items-center gap-2 text-[10px] font-black uppercase tracking-widest text-indigo-500 hover:text-indigo-700 transition-colors bg-indigo-50/50 px-4 py-2 rounded-full border border-indigo-100"
           >
             {isExpanded ? (
-              <>Show Less <ChevronUp size={14} /></>
+              <>Less <ChevronUp size={14} /></>
             ) : (
-              <>View Details & Eligibility <ChevronDown size={14} /></>
+              <>Details <ChevronDown size={14} /></>
             )}
           </button>
 
-          <button
-            onClick={(e) => {
-              e.stopPropagation();
-              handleShare();
-            }}
-            className={`flex items-center gap-2 text-[10px] font-black uppercase tracking-widest transition-all px-4 py-2 rounded-full border ${
-              copied 
-                ? 'bg-emerald-500 text-white border-emerald-400 shadow-lg shadow-emerald-100' 
-                : 'text-slate-400 hover:text-slate-600 bg-slate-50/50 border-slate-100'
-            }`}
-          >
-            {copied ? (
-              <>Copied! <Check size={14} /></>
-            ) : (
-              <>Share <Share2 size={14} /></>
-            )}
-          </button>
+          <div className="flex flex-wrap gap-2">
+            <button
+              onClick={(e) => {
+                e.stopPropagation();
+                handleShare();
+              }}
+              className={`flex items-center gap-2 text-[10px] font-black uppercase tracking-widest transition-all px-4 py-2 rounded-full border ${
+                copied 
+                  ? 'bg-emerald-500 text-white border-emerald-400 shadow-lg shadow-emerald-100' 
+                  : 'text-slate-400 hover:text-slate-600 bg-slate-50/50 border-slate-100'
+              }`}
+            >
+              {copied ? <Check size={14} /> : <Share2 size={14} />}
+              <span className="hidden sm:inline">{copied ? 'Copied!' : 'Share'}</span>
+            </button>
 
-          <button
-            onClick={(e) => {
-              e.stopPropagation();
-              onSave?.(scholarship.id);
-            }}
-            className={`flex items-center gap-2 text-[10px] font-black uppercase tracking-widest transition-all px-4 py-2 rounded-full border ${
-              isSaved 
-                ? 'bg-rose-500 text-white border-rose-500 shadow-lg shadow-rose-100' 
-                : 'text-slate-400 hover:text-rose-500 bg-slate-50/50 border-slate-100'
-            }`}
-            title={isSaved ? "Remove from saved" : "Save for later"}
-          >
-            <Heart size={14} className={isSaved ? "fill-current" : ""} />
-            {isSaved ? "Saved" : "Save"}
-          </button>
+            <button
+              onClick={(e) => {
+                e.stopPropagation();
+                onSave?.(scholarship.id);
+              }}
+              className={`flex items-center gap-2 text-[10px] font-black uppercase tracking-widest transition-all px-4 py-2 rounded-full border ${
+                isSaved 
+                  ? 'bg-rose-500 text-white border-rose-500 shadow-lg shadow-rose-100' 
+                  : 'text-slate-400 hover:text-rose-500 bg-slate-50/50 border-slate-100'
+              }`}
+            >
+              <Heart size={14} className={isSaved ? "fill-current" : ""} />
+              <span className="hidden sm:inline">{isSaved ? "Saved" : "Save"}</span>
+            </button>
+
+            <button
+              onClick={(e) => {
+                e.stopPropagation();
+                setShowReminderPicker(!showReminderPicker);
+              }}
+              className={`flex items-center gap-2 text-[10px] font-black uppercase tracking-widest transition-all px-4 py-2 rounded-full border ${
+                showReminderPicker 
+                  ? 'bg-indigo-600 text-white border-indigo-500 shadow-lg shadow-indigo-100' 
+                  : 'text-slate-400 hover:text-indigo-600 bg-slate-50/50 border-slate-100'
+              }`}
+            >
+              <Bell size={14} />
+              <span className="hidden sm:inline">Remind</span>
+            </button>
+          </div>
         </div>
+
+        {/* Reminder Picker */}
+        <AnimatePresence>
+          {showReminderPicker && (
+            <motion.div
+              initial={{ height: 0, opacity: 0 }}
+              animate={{ height: 'auto', opacity: 1 }}
+              exit={{ height: 0, opacity: 0 }}
+              onClick={(e) => e.stopPropagation()}
+              className="overflow-hidden"
+            >
+              <div className="bg-indigo-50/50 p-4 rounded-2xl border border-indigo-100 mt-4 space-y-3">
+                <p className="text-[10px] font-black text-indigo-600 uppercase tracking-widest flex items-center gap-1.5">
+                  <Clock size={12} /> Set Deadline Reminder
+                </p>
+                <div className="flex gap-2">
+                  <input
+                    type="datetime-local"
+                    value={reminderTime}
+                    onChange={(e) => setReminderTime(e.target.value)}
+                    className="flex-grow p-2 bg-white border border-indigo-100 rounded-xl text-xs font-bold text-slate-700 focus:outline-none focus:ring-2 focus:ring-indigo-500/20"
+                  />
+                  <button
+                    onClick={() => {
+                      if (reminderTime) {
+                        onSetReminder?.(scholarship.id, scholarship.title, reminderTime);
+                        setShowReminderPicker(false);
+                        setReminderTime('');
+                      }
+                    }}
+                    disabled={!reminderTime}
+                    className="px-4 py-2 bg-indigo-600 text-white rounded-xl text-[10px] font-black uppercase tracking-widest hover:bg-indigo-700 transition-colors disabled:opacity-50"
+                  >
+                    Set
+                  </button>
+                </div>
+              </div>
+            </motion.div>
+          )}
+        </AnimatePresence>
 
         <AnimatePresence>
           {isExpanded && (

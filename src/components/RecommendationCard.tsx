@@ -45,10 +45,10 @@ export const RecommendationCard: React.FC<RecommendationCardProps> = ({
   return (
     <motion.div
       whileHover={{ y: -8 }}
-      className="group bg-white rounded-[2.5rem] border border-slate-100 shadow-sm hover:shadow-2xl hover:shadow-indigo-100 transition-all duration-500 overflow-hidden flex flex-col h-full"
+      className="group bg-white rounded-[2rem] md:rounded-[2.5rem] border border-slate-100 shadow-sm hover:shadow-2xl hover:shadow-indigo-100 transition-all duration-500 overflow-hidden flex flex-col h-full"
     >
       {/* Header with Match Score */}
-      <div className="relative p-6 pb-0">
+      <div className="relative p-5 md:p-6 pb-0">
         <div className="flex justify-between items-start mb-4">
           <div className="flex gap-2">
             <span className="px-3 py-1 bg-indigo-50 text-indigo-600 text-[10px] font-black uppercase tracking-widest rounded-full border border-indigo-100">

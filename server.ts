@@ -34,6 +34,18 @@ db.exec(`
   )
 `);
 
+db.exec(`
+  CREATE TABLE IF NOT EXISTS reminders (
+    id TEXT PRIMARY KEY,
+    userId TEXT,
+    scholarshipId TEXT,
+    scholarshipTitle TEXT,
+    reminderTime TEXT,
+    triggered INTEGER DEFAULT 0,
+    FOREIGN KEY(userId) REFERENCES users(id)
+  )
+`);
+
 const client = new OAuth2Client(
   process.env.GOOGLE_CLIENT_ID,
   process.env.GOOGLE_CLIENT_SECRET
@@ -160,6 +172,43 @@ app.get("/api/auth/google/url", (req, res) => {
     redirect_uri: redirectUri,
   });
   res.json({ url });
+});
+
+// Reminder endpoints
+app.post("/api/reminders", (req, res) => {
+  const { userId, scholarshipId, scholarshipTitle, reminderTime } = req.body;
+  const id = Math.random().toString(36).substr(2, 9);
+  
+  try {
+    const stmt = db.prepare("INSERT INTO reminders (id, userId, scholarshipId, scholarshipTitle, reminderTime) VALUES (?, ?, ?, ?, ?)");
+    stmt.run(id, userId, scholarshipId, scholarshipTitle, reminderTime);
+    res.json({ id, userId, scholarshipId, scholarshipTitle, reminderTime });
+  } catch (error) {
+    console.error("Failed to save reminder:", error);
+    res.status(500).json({ error: "Failed to save reminder" });
+  }
+});
+
+app.get("/api/reminders/:userId", (req, res) => {
+  const { userId } = req.params;
+  try {
+    const reminders = db.prepare("SELECT * FROM reminders WHERE userId = ? AND triggered = 0").all(userId);
+    res.json(reminders);
+  } catch (error) {
+    console.error("Failed to fetch reminders:", error);
+    res.status(500).json({ error: "Failed to fetch reminders" });
+  }
+});
+
+app.post("/api/reminders/:id/trigger", (req, res) => {
+  const { id } = req.params;
+  try {
+    db.prepare("UPDATE reminders SET triggered = 1 WHERE id = ?").run(id);
+    res.json({ message: "Reminder marked as triggered" });
+  } catch (error) {
+    console.error("Failed to update reminder:", error);
+    res.status(500).json({ error: "Failed to update reminder" });
+  }
 });
 
 app.get("/auth/google/callback", async (req, res) => {

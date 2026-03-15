@@ -26,7 +26,7 @@ export async function findScholarships(
        - Scholarships currently accepting applications.
        - Upcoming scholarships (those opening in the next 6-12 months).
        - Scholarships specifically for the user's gender (${userProfile.gender}), year of study (${userProfile.yearOfStudy}), background, extracurricular activities (${userProfile.extracurriculars || 'None listed'}), awards/honors (${userProfile.awards || 'None listed'}), or field of study.
-       - Local opportunities in ${userProfile.country} and ${userProfile.state}.
+       - Local opportunities in ${userProfile.country} and ${userProfile.state}. (e.g., if the user is from Odisha, search for e-Medhabruti, KALIA/Krusi Vidya, Gopabandhu Sikhya Sahayata Yojana, etc.)
        - Global opportunities (USA, UK, Europe, etc.) that accept international students from ${userProfile.country}.
        - If the user has set a profile completion deadline (${userProfile.profileDeadline}), prioritize scholarships with deadlines that align with or follow this date, ensuring the user has enough time to apply after completing their profile.
     3. For each scholarship found, provide:

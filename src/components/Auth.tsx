@@ -203,7 +203,7 @@ export const Auth: React.FC<AuthProps> = ({ onLogin }) => {
                   ? 'Enter your email to receive a reset code' 
                   : isLogin 
                     ? 'Sign in to access your scholarship matches' 
-                    : 'Join ScholarMatch AI to find your funding'}
+                    : 'Join GrantHer to find your funding'}
           </p>
         </div>
 

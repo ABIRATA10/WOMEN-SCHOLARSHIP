@@ -69,3 +69,12 @@ export interface Application {
   updatedAt: string;
   notes?: string;
 }
+
+export interface Reminder {
+  id: string;
+  userId: string;
+  scholarshipId: string;
+  scholarshipTitle: string;
+  reminderTime: string;
+  triggered: boolean;
+}

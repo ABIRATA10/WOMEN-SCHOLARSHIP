@@ -1,15 +1,31 @@
 import React from 'react';
 import { ProfileForm } from './components/ProfileForm';
+import { UserProfileView } from './components/UserProfileView';
 import { ScholarshipCard } from './components/ScholarshipCard';
 import { Auth } from './components/Auth';
 import { ApplicationAssistant } from './components/ApplicationAssistant';
 import { Dashboard } from './components/Dashboard';
 import { SupportChatbot } from './components/SupportChatbot';
 import { NotificationManager } from './components/NotificationManager';
-import { UserProfile, Scholarship, MatchResult, User as UserType, ScholarshipMatch, Application, ApplicationStatus } from './types';
+import { UserProfile, Scholarship, MatchResult, User as UserType, ScholarshipMatch, Application, ApplicationStatus, Reminder } from './types';
 import { findScholarships } from './services/gemini';
-import { Sparkles, GraduationCap, Filter, Search, ArrowLeft, Globe, MapPin, User, LogOut, LayoutDashboard, BookmarkCheck, Heart, Bot, AlertTriangle, Clock } from 'lucide-react';
+import { Sparkles, GraduationCap, Filter, Search, ArrowLeft, Globe, MapPin, User, LogOut, LayoutDashboard, BookmarkCheck, Heart, Bot, AlertTriangle, Clock, RefreshCw, History, Bell, Menu, X } from 'lucide-react';
 import { motion, AnimatePresence } from 'motion/react';
+
+const Logo = ({ size = 24 }: { size?: number }) => (
+  <svg 
+    width={size} 
+    height={size} 
+    viewBox="0 0 24 24" 
+    fill="none" 
+    xmlns="http://www.w3.org/2000/svg"
+    className="drop-shadow-sm"
+  >
+    <path d="M2 10l10-5 10 5-10 5-10-5Z" fill="black" stroke="black" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"/>
+    <path d="M6 12v5c0 2 2 3 6 3s6-1 6-3v-5" stroke="black" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"/>
+    <path d="M22 10v6" stroke="#EF4444" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round"/>
+  </svg>
+);
 
 export default function App() {
   const [currentUser, setCurrentUser] = React.useState<UserType | null>(() => {
@@ -78,6 +94,8 @@ export default function App() {
   });
   const [isAssistantOpen, setIsAssistantOpen] = React.useState(false);
   const [showLogoutConfirm, setShowLogoutConfirm] = React.useState(false);
+  const [isMenuOpen, setIsMenuOpen] = React.useState(false);
+  const [reminders, setReminders] = React.useState<Reminder[]>([]);
 
   // Persist data
   React.useEffect(() => {
@@ -119,6 +137,44 @@ export default function App() {
   React.useEffect(() => {
     localStorage.setItem('scholar_search_history', JSON.stringify(searchHistory));
   }, [searchHistory]);
+
+  // Fetch reminders
+  React.useEffect(() => {
+    if (currentUser) {
+      fetch(`/api/reminders/${currentUser.id}`)
+        .then(res => res.json())
+        .then(data => setReminders(data))
+        .catch(err => console.error("Failed to fetch reminders", err));
+    }
+  }, [currentUser]);
+
+  // Reminder polling
+  React.useEffect(() => {
+    const interval = setInterval(() => {
+      const now = new Date();
+      reminders.forEach(reminder => {
+        if (!reminder.triggered && new Date(reminder.reminderTime) <= now) {
+          // Trigger notification
+          window.dispatchEvent(new CustomEvent('add-notification', {
+            detail: {
+              title: "Scholarship Reminder! ⏰",
+              message: `It's time to work on your application for: ${reminder.scholarshipTitle}`,
+              type: 'scholarship'
+            }
+          }));
+
+          // Mark as triggered in DB
+          fetch(`/api/reminders/${reminder.id}/trigger`, { method: 'POST' })
+            .catch(err => console.error("Failed to trigger reminder", err));
+
+          // Update local state
+          setReminders(prev => prev.filter(r => r.id !== reminder.id));
+        }
+      });
+    }, 30000); // Check every 30 seconds
+
+    return () => clearInterval(interval);
+  }, [reminders]);
 
   React.useEffect(() => {
     if (searchQuery.trim().length > 2) {
@@ -164,7 +220,9 @@ export default function App() {
     const s = r.scholarship;
     const m = r.match;
     const matchesFilter = filter === 'All' || s.category === filter;
-    const matchesScope = scopeFilter === 'All' || s.scope === scopeFilter;
+    const matchesScope = scopeFilter === 'All' || 
+                         s.scope === scopeFilter || 
+                         (scopeFilter === 'State' && profile && s.location?.toLowerCase().includes(profile.state.toLowerCase()));
     const matchesMajor = majorFilter === 'All' || (s.major && s.major.toLowerCase().includes(majorFilter.toLowerCase()));
     const matchesGpa = gpaFilter === 'All' || (s.minGpa !== undefined && s.minGpa <= parseFloat(gpaFilter));
     const matchesLocation = locationFilter === 'All' || (s.location && s.location.toLowerCase().includes(locationFilter.toLowerCase()));
@@ -260,6 +318,38 @@ export default function App() {
     });
   };
 
+  const handleSetReminder = async (scholarshipId: string, scholarshipTitle: string, time: string) => {
+    if (!currentUser) return;
+    
+    try {
+      const response = await fetch('/api/reminders', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          userId: currentUser.id,
+          scholarshipId,
+          scholarshipTitle,
+          reminderTime: time
+        })
+      });
+      
+      if (response.ok) {
+        const newReminder = await response.json();
+        setReminders(prev => [...prev, newReminder]);
+        
+        window.dispatchEvent(new CustomEvent('add-notification', {
+          detail: {
+            title: "Reminder Set! ✨",
+            message: `We'll remind you about ${scholarshipTitle} on ${new Date(time).toLocaleString()}`,
+            type: 'success'
+          }
+        }));
+      }
+    } catch (error) {
+      console.error("Failed to set reminder", error);
+    }
+  };
+
   const handleLogout = () => {
     localStorage.removeItem('scholar_current_user');
     localStorage.removeItem('scholar_profile');
@@ -285,7 +375,7 @@ export default function App() {
       </div>
 
       <nav className="sticky top-0 z-50 bg-white/80 backdrop-blur-xl border-b border-slate-100">
-        <div className="max-w-7xl mx-auto px-6 h-20 flex items-center justify-between">
+        <div className="max-w-7xl mx-auto px-4 md:px-6 h-20 flex items-center justify-between">
           <div className="flex items-center gap-3 group cursor-pointer" onClick={() => { 
             localStorage.clear();
             setProfile(null); 
@@ -293,68 +383,135 @@ export default function App() {
             setView('Landing'); 
           }}>
             <div className="w-10 h-10 bg-gradient-to-br from-indigo-600 to-violet-600 rounded-xl flex items-center justify-center shadow-lg shadow-indigo-200 group-hover:scale-110 transition-transform">
-              <Sparkles className="text-white" size={24} />
+              <Logo size={24} />
             </div>
             <span className="text-xl font-black tracking-tighter bg-clip-text text-transparent bg-gradient-to-r from-indigo-600 to-violet-600">
-              ScholarMatch AI
+              GrantHer
             </span>
           </div>
           
           {profile && (
-            <div className="flex items-center gap-4">
-              <NotificationManager />
-              <button 
-                onClick={() => setView(view === 'Dashboard' ? 'Results' : 'Dashboard')}
-                className={`flex items-center gap-2 px-6 py-2.5 rounded-full text-xs font-black uppercase tracking-widest transition-all shadow-lg ${
-                  view === 'Dashboard' 
-                    ? 'bg-indigo-600 text-white shadow-indigo-200' 
-                    : 'bg-white text-slate-900 border border-slate-100 shadow-slate-200 hover:bg-slate-50'
-                }`}
-              >
-                <LayoutDashboard size={14} /> {view === 'Dashboard' ? 'Back to Results' : 'Dashboard'}
-              </button>
-              <button 
-                onClick={() => setView(view === 'Applications' ? 'Results' : 'Applications')}
-                className={`flex items-center gap-2 px-6 py-2.5 rounded-full text-xs font-black uppercase tracking-widest transition-all shadow-lg ${
-                  view === 'Applications' 
-                    ? 'bg-indigo-600 text-white shadow-indigo-200' 
-                    : 'bg-white text-slate-900 border border-slate-100 shadow-slate-200 hover:bg-slate-50'
-                }`}
-              >
-                <BookmarkCheck size={14} /> {view === 'Applications' ? 'Back to Results' : 'My Applications'}
-              </button>
-              <button 
-                onClick={() => setView(view === 'Saved' ? 'Results' : 'Saved')}
-                className={`flex items-center gap-2 px-6 py-2.5 rounded-full text-xs font-black uppercase tracking-widest transition-all shadow-lg ${
-                  view === 'Saved' 
-                    ? 'bg-rose-600 text-white shadow-rose-200' 
-                    : 'bg-white text-slate-900 border border-slate-100 shadow-slate-200 hover:bg-slate-50'
-                }`}
-              >
-                <Heart size={14} className={savedIds.length > 0 ? "fill-current" : ""} /> {view === 'Saved' ? 'Back to Results' : 'Saved'}
-              </button>
-              <button 
-                onClick={() => setView(view === 'Profile' ? 'Results' : 'Profile')}
-                className={`flex items-center gap-2 px-6 py-2.5 rounded-full text-xs font-black uppercase tracking-widest transition-all shadow-lg ${
-                  view === 'Profile' 
-                    ? 'bg-indigo-600 text-white shadow-indigo-200' 
-                    : 'bg-white text-slate-900 border border-slate-100 shadow-slate-200 hover:bg-slate-50'
-                }`}
-              >
-                <User size={14} /> {view === 'Profile' ? 'Back to Results' : 'My Profile'}
-              </button>
-              <button 
-                onClick={() => setShowLogoutConfirm(true)}
-                className="flex items-center gap-2 px-6 py-2.5 bg-slate-900 hover:bg-black text-white rounded-full text-xs font-black uppercase tracking-widest transition-all shadow-lg shadow-slate-200"
-              >
-                <LogOut size={14} /> Logout
-              </button>
-            </div>
+            <>
+              {/* Desktop Menu */}
+              <div className="hidden lg:flex items-center gap-4">
+                <NotificationManager />
+                <button 
+                  onClick={() => setView(view === 'Dashboard' ? 'Results' : 'Dashboard')}
+                  className={`flex items-center gap-2 px-6 py-2.5 rounded-full text-xs font-black uppercase tracking-widest transition-all shadow-lg ${
+                    view === 'Dashboard' 
+                      ? 'bg-indigo-600 text-white shadow-indigo-200' 
+                      : 'bg-white text-slate-900 border border-slate-100 shadow-slate-200 hover:bg-slate-50'
+                  }`}
+                >
+                  <LayoutDashboard size={14} /> {view === 'Dashboard' ? 'Back to Results' : 'Dashboard'}
+                </button>
+                <button 
+                  onClick={() => setView(view === 'Applications' ? 'Results' : 'Applications')}
+                  className={`flex items-center gap-2 px-6 py-2.5 rounded-full text-xs font-black uppercase tracking-widest transition-all shadow-lg ${
+                    view === 'Applications' 
+                      ? 'bg-indigo-600 text-white shadow-indigo-200' 
+                      : 'bg-white text-slate-900 border border-slate-100 shadow-slate-200 hover:bg-slate-50'
+                  }`}
+                >
+                  <BookmarkCheck size={14} /> {view === 'Applications' ? 'Back to Results' : 'My Applications'}
+                </button>
+                <button 
+                  onClick={() => setView(view === 'Saved' ? 'Results' : 'Saved')}
+                  className={`flex items-center gap-2 px-6 py-2.5 rounded-full text-xs font-black uppercase tracking-widest transition-all shadow-lg ${
+                    view === 'Saved' 
+                      ? 'bg-rose-600 text-white shadow-rose-200' 
+                      : 'bg-white text-slate-900 border border-slate-100 shadow-slate-200 hover:bg-slate-50'
+                  }`}
+                >
+                  <Heart size={14} className={savedIds.length > 0 ? "fill-current" : ""} /> {view === 'Saved' ? 'Back to Results' : 'Saved'}
+                </button>
+                <button 
+                  onClick={() => setView(view === 'Profile' ? 'Results' : 'Profile')}
+                  className={`flex items-center gap-2 px-6 py-2.5 rounded-full text-xs font-black uppercase tracking-widest transition-all shadow-lg ${
+                    view === 'Profile' 
+                      ? 'bg-indigo-600 text-white shadow-indigo-200' 
+                      : 'bg-white text-slate-900 border border-slate-100 shadow-slate-200 hover:bg-slate-50'
+                  }`}
+                >
+                  <User size={14} /> {view === 'Profile' ? 'Back to Results' : 'My Profile'}
+                </button>
+                <button 
+                  onClick={() => setShowLogoutConfirm(true)}
+                  className="flex items-center gap-2 px-6 py-2.5 bg-slate-900 hover:bg-black text-white rounded-full text-xs font-black uppercase tracking-widest transition-all shadow-lg shadow-slate-200"
+                >
+                  <LogOut size={14} /> Logout
+                </button>
+              </div>
+
+              {/* Mobile Menu Toggle */}
+              <div className="lg:hidden flex items-center gap-3">
+                <NotificationManager />
+                <button 
+                  onClick={() => setIsMenuOpen(!isMenuOpen)}
+                  className="p-2.5 bg-slate-50 text-slate-900 rounded-xl border border-slate-100"
+                >
+                  {isMenuOpen ? <X size={20} /> : <Menu size={20} />}
+                </button>
+              </div>
+            </>
           )}
         </div>
+
+        {/* Mobile Menu Overlay */}
+        <AnimatePresence>
+          {isMenuOpen && (
+            <motion.div
+              initial={{ opacity: 0, height: 0 }}
+              animate={{ opacity: 1, height: 'auto' }}
+              exit={{ opacity: 0, height: 0 }}
+              className="lg:hidden bg-white border-b border-slate-100 overflow-hidden"
+            >
+              <div className="p-4 space-y-2">
+                <button 
+                  onClick={() => { setView(view === 'Dashboard' ? 'Results' : 'Dashboard'); setIsMenuOpen(false); }}
+                  className={`w-full flex items-center gap-3 px-6 py-4 rounded-2xl text-xs font-black uppercase tracking-widest transition-all ${
+                    view === 'Dashboard' ? 'bg-indigo-600 text-white' : 'bg-slate-50 text-slate-900'
+                  }`}
+                >
+                  <LayoutDashboard size={16} /> {view === 'Dashboard' ? 'Back to Results' : 'Dashboard'}
+                </button>
+                <button 
+                  onClick={() => { setView(view === 'Applications' ? 'Results' : 'Applications'); setIsMenuOpen(false); }}
+                  className={`w-full flex items-center gap-3 px-6 py-4 rounded-2xl text-xs font-black uppercase tracking-widest transition-all ${
+                    view === 'Applications' ? 'bg-indigo-600 text-white' : 'bg-slate-50 text-slate-900'
+                  }`}
+                >
+                  <BookmarkCheck size={16} /> {view === 'Applications' ? 'Back to Results' : 'My Applications'}
+                </button>
+                <button 
+                  onClick={() => { setView(view === 'Saved' ? 'Results' : 'Saved'); setIsMenuOpen(false); }}
+                  className={`w-full flex items-center gap-3 px-6 py-4 rounded-2xl text-xs font-black uppercase tracking-widest transition-all ${
+                    view === 'Saved' ? 'bg-rose-600 text-white' : 'bg-slate-50 text-slate-900'
+                  }`}
+                >
+                  <Heart size={16} className={savedIds.length > 0 ? "fill-current" : ""} /> {view === 'Saved' ? 'Back to Results' : 'Saved'}
+                </button>
+                <button 
+                  onClick={() => { setView(view === 'Profile' ? 'Results' : 'Profile'); setIsMenuOpen(false); }}
+                  className={`w-full flex items-center gap-3 px-6 py-4 rounded-2xl text-xs font-black uppercase tracking-widest transition-all ${
+                    view === 'Profile' ? 'bg-indigo-600 text-white' : 'bg-slate-50 text-slate-900'
+                  }`}
+                >
+                  <User size={16} /> {view === 'Profile' ? 'Back to Results' : 'My Profile'}
+                </button>
+                <button 
+                  onClick={() => { setShowLogoutConfirm(true); setIsMenuOpen(false); }}
+                  className="w-full flex items-center gap-3 px-6 py-4 bg-slate-900 text-white rounded-2xl text-xs font-black uppercase tracking-widest transition-all"
+                >
+                  <LogOut size={16} /> Logout
+                </button>
+              </div>
+            </motion.div>
+          )}
+        </AnimatePresence>
       </nav>
 
-      <main className="max-w-7xl mx-auto px-6 py-12 relative z-10">
+      <main className="max-w-7xl mx-auto px-4 md:px-6 py-6 md:py-12 relative z-10">
         <AnimatePresence mode="wait">
           {view === 'Landing' ? (
             <motion.div
@@ -402,7 +559,7 @@ export default function App() {
                 </div>
                 <div className="p-6 group">
                   <div className="w-14 h-14 bg-rose-50 text-rose-600 rounded-2xl flex items-center justify-center mx-auto mb-6 transition-transform group-hover:scale-110 group-hover:rotate-3">
-                    <GraduationCap size={28} />
+                    <Logo size={28} />
                   </div>
                   <h3 className="font-black text-slate-900 mb-2">Career First</h3>
                   <p className="text-sm text-slate-400 font-medium">Funding that aligns with your professional dreams.</p>
@@ -550,53 +707,81 @@ export default function App() {
               initial={{ opacity: 0, x: 20 }}
               animate={{ opacity: 1, x: 0 }}
               exit={{ opacity: 0, x: -20 }}
-              className="max-w-3xl mx-auto"
             >
-              <div className="mb-12 flex items-center justify-between">
-                <div>
-                  <h2 className="text-4xl font-black text-slate-900 tracking-tight">User Profile</h2>
-                  <p className="text-slate-400 font-medium">Update your details to refine your scholarship matches.</p>
-                </div>
-                <button 
-                  onClick={() => setView('Results')}
-                  className="px-6 py-2.5 bg-slate-50 text-slate-600 rounded-xl text-xs font-black uppercase tracking-widest hover:bg-slate-100 transition-all border border-slate-100"
-                >
-                  Cancel
-                </button>
-              </div>
-              <ProfileForm onSubmit={handleProfileSubmit} isLoading={isLoading} initialData={profile} />
+              {profile && (
+                <UserProfileView 
+                  profile={profile}
+                  results={results}
+                  savedIds={savedIds}
+                  applications={applications}
+                  onSave={handleSave}
+                  onApply={handleApply}
+                  onUpdateProfile={handleProfileSubmit}
+                  onUpdateStatus={handleUpdateApplicationStatus}
+                  onUpdateNotes={handleUpdateApplicationNotes}
+                  isLoading={isLoading}
+                  onBack={() => setView('Results')}
+                />
+              )}
             </motion.div>
           ) : (
             <motion.div
               key="results"
               initial={{ opacity: 0 }}
               animate={{ opacity: 1 }}
-              className="space-y-12"
+              className="space-y-8 md:space-y-12"
             >
-              <div className="bg-white p-8 rounded-[3rem] shadow-xl shadow-slate-200/50 border border-slate-50">
-                <div className="flex flex-col md:flex-row md:items-center justify-between gap-8">
-                  <div className="space-y-2">
-                    <h2 className="text-4xl font-black text-slate-900 tracking-tight">
+              <div className="bg-white p-6 md:p-8 rounded-[2rem] md:rounded-[3rem] shadow-xl shadow-slate-200/50 border border-slate-50">
+                <div className="flex flex-col lg:flex-row lg:items-center justify-between gap-6 md:gap-8">
+                  <div className="space-y-1 md:space-y-2">
+                    <h2 className="text-3xl md:text-4xl font-black text-slate-900 tracking-tight">
                       Found <span className="text-indigo-600">{results.length}</span> Opportunities
                     </h2>
-                    <p className="text-slate-400 font-medium flex items-center gap-2">
+                    <p className="text-slate-400 text-xs md:text-sm font-medium flex items-center gap-2">
                       <MapPin size={14} className="text-rose-400" /> 
                       Matches for {profile.fullName} in {profile.country}
                     </p>
                   </div>
 
-                  <div className="flex flex-wrap items-center gap-4">
-                    <div className="relative flex-grow md:flex-grow-0">
-                      <Search className="absolute left-4 top-1/2 -translate-y-1/2 text-slate-300" size={18} />
-                      <input
-                        type="text"
-                        placeholder="Search keywords, title, provider..."
-                        value={searchQuery}
-                        onChange={(e) => setSearchQuery(e.target.value)}
-                        className="pl-12 pr-6 py-3.5 bg-slate-50 border border-slate-100 rounded-2xl focus:outline-none focus:ring-2 focus:ring-indigo-500/20 focus:border-indigo-400 transition-all text-sm font-medium w-full md:w-64"
-                      />
+                  <div className="flex flex-col md:flex-row flex-wrap items-start md:items-center gap-4">
+                    <div className="relative w-full md:w-auto flex flex-col sm:flex-row gap-2">
+                      <div className="relative flex-grow">
+                        <Search className="absolute left-4 top-1/2 -translate-y-1/2 text-slate-300" size={18} />
+                        <input
+                          type="text"
+                          placeholder="Search keywords..."
+                          value={searchQuery}
+                          onChange={(e) => setSearchQuery(e.target.value)}
+                          className="pl-12 pr-6 py-3 bg-slate-50 border border-slate-100 rounded-2xl focus:outline-none focus:ring-2 focus:ring-indigo-500/20 focus:border-indigo-400 transition-all text-sm font-medium w-full md:w-64"
+                        />
+                      </div>
+                      <div className="flex gap-2">
+                        <button
+                          onClick={() => profile && handleProfileSubmit(profile)}
+                          className="p-3 bg-white border border-slate-100 hover:border-indigo-200 text-slate-400 hover:text-indigo-600 rounded-2xl transition-all shadow-sm flex items-center justify-center flex-grow sm:flex-grow-0"
+                          title="Refresh search results"
+                        >
+                          <motion.div
+                            animate={isLoading ? { rotate: 360 } : {}}
+                            transition={{ repeat: Infinity, duration: 1, ease: "linear" }}
+                          >
+                            <Sparkles size={18} />
+                          </motion.div>
+                        </button>
+                        <button
+                          onClick={() => setShowAdvancedFilters(!showAdvancedFilters)}
+                          className={`px-4 py-3 rounded-2xl text-[10px] font-black uppercase tracking-widest transition-all border flex items-center gap-2 flex-grow sm:flex-grow-0 ${
+                            showAdvancedFilters 
+                              ? 'bg-indigo-600 text-white border-indigo-600 shadow-lg shadow-indigo-200' 
+                              : 'bg-white text-slate-400 border-slate-100 hover:border-indigo-200'
+                          }`}
+                        >
+                          <Filter size={14} /> {showAdvancedFilters ? 'Hide' : 'Filters'}
+                        </button>
+                      </div>
+                      
                       {searchHistory.length > 0 && (
-                        <div className="absolute top-full left-0 mt-2 flex flex-wrap gap-2 z-20">
+                        <div className="hidden sm:flex absolute top-full left-0 mt-2 flex-wrap gap-2 z-20">
                           {searchHistory.map((query, idx) => (
                             <button
                               key={idx}
@@ -610,78 +795,66 @@ export default function App() {
                       )}
                     </div>
                     
-                    <div className="flex items-center gap-4">
-                      <span className="text-[10px] font-black uppercase tracking-widest text-slate-400 whitespace-nowrap">Source:</span>
-                      <div className="flex items-center gap-2 p-1 bg-slate-50 rounded-2xl border border-slate-100">
-                        {(['All', 'Government', 'Private'] as const).map((cat) => (
-                          <button
-                            key={cat}
-                            onClick={() => setFilter(cat)}
-                            className={`px-6 py-2.5 rounded-xl text-[10px] font-black uppercase tracking-widest transition-all ${
-                              filter === cat 
-                                ? 'bg-white text-indigo-600 shadow-sm' 
-                                : 'text-slate-400 hover:text-slate-600'
-                            }`}
+                    <div className="flex flex-wrap items-center gap-4 w-full md:w-auto">
+                      <div className="flex items-center gap-2 w-full sm:w-auto overflow-x-auto pb-2 sm:pb-0 no-scrollbar">
+                        <div className="flex items-center gap-2 p-1 bg-slate-50 rounded-2xl border border-slate-100 shrink-0">
+                          {(['All', 'Government', 'Private'] as const).map((cat) => (
+                            <button
+                              key={cat}
+                              onClick={() => setFilter(cat)}
+                              className={`px-4 md:px-6 py-2 rounded-xl text-[10px] font-black uppercase tracking-widest transition-all ${
+                                filter === cat 
+                                  ? 'bg-white text-indigo-600 shadow-sm' 
+                                  : 'text-slate-400 hover:text-slate-600'
+                              }`}
+                            >
+                              {cat}
+                            </button>
+                          ))}
+                        </div>
+                        
+                        <div className="flex items-center gap-2 p-1 bg-slate-50 rounded-2xl border border-slate-100 shrink-0">
+                          {(['All', 'State', 'National', 'Global'] as const).map((scope) => (
+                            <button
+                              key={scope}
+                              onClick={() => setScopeFilter(scope)}
+                              className={`px-3 md:px-4 py-2 rounded-xl text-[10px] font-black uppercase tracking-widest transition-all ${
+                                scopeFilter === scope 
+                                  ? 'bg-white text-indigo-600 shadow-sm' 
+                                  : 'text-slate-400 hover:text-slate-600'
+                              }`}
+                            >
+                              {scope}
+                            </button>
+                          ))}
+                        </div>
+                      </div>
+
+                      <div className="flex items-center gap-2 w-full sm:w-auto">
+                        <div className="flex-grow sm:flex-grow-0 p-1 bg-slate-50 rounded-2xl border border-slate-100">
+                          <select
+                            value={sortBy}
+                            onChange={(e) => setSortBy(e.target.value as any)}
+                            className="w-full bg-transparent border-none text-[10px] font-black uppercase tracking-widest text-slate-600 focus:ring-0 px-4 py-2 cursor-pointer outline-none"
                           >
-                            {cat}
-                          </button>
-                        ))}
+                            <option value="Match">Sort: Match</option>
+                            <option value="AmountDesc">Sort: Amount</option>
+                            <option value="DeadlineAsc">Sort: Deadline</option>
+                          </select>
+                        </div>
+
+                        <button
+                          onClick={() => setCommunityOnly(!communityOnly)}
+                          className={`px-4 py-3 rounded-2xl text-[10px] font-black uppercase tracking-widest transition-all border flex items-center gap-2 flex-grow sm:flex-grow-0 ${
+                            communityOnly 
+                              ? 'bg-slate-900 text-white border-slate-900 shadow-lg shadow-slate-200' 
+                              : 'bg-white text-slate-400 border-slate-100 hover:border-indigo-200'
+                          }`}
+                        >
+                          <Filter size={14} /> <span className="hidden sm:inline">Community</span>
+                        </button>
                       </div>
                     </div>
-
-                    <div className="flex items-center gap-4">
-                      <span className="text-[10px] font-black uppercase tracking-widest text-slate-400 whitespace-nowrap">Region:</span>
-                      <div className="flex items-center gap-2 p-1 bg-slate-50 rounded-2xl border border-slate-100">
-                        {(['All', 'State', 'National', 'Global'] as const).map((scope) => (
-                          <button
-                            key={scope}
-                            onClick={() => setScopeFilter(scope)}
-                            className={`px-4 py-2.5 rounded-xl text-[10px] font-black uppercase tracking-widest transition-all ${
-                              scopeFilter === scope 
-                                ? 'bg-white text-indigo-600 shadow-sm' 
-                                : 'text-slate-400 hover:text-slate-600'
-                            }`}
-                          >
-                            {scope}
-                          </button>
-                        ))}
-                      </div>
-                    </div>
-
-                    <div className="flex items-center gap-2 p-1 bg-slate-50 rounded-2xl border border-slate-100">
-                      <select
-                        value={sortBy}
-                        onChange={(e) => setSortBy(e.target.value as any)}
-                        className="bg-transparent border-none text-[10px] font-black uppercase tracking-widest text-slate-600 focus:ring-0 px-4 py-2 cursor-pointer outline-none"
-                      >
-                        <option value="Match">Sort: Match Score</option>
-                        <option value="AmountDesc">Sort: Amount (High to Low)</option>
-                        <option value="DeadlineAsc">Sort: Deadline (Closest)</option>
-                        <option value="DeadlineDesc">Sort: Deadline (Furthest)</option>
-                      </select>
-                    </div>
-
-                    <button
-                      onClick={() => setShowAdvancedFilters(!showAdvancedFilters)}
-                      className={`px-6 py-3.5 rounded-2xl text-[10px] font-black uppercase tracking-widest transition-all border flex items-center gap-2 ${
-                        showAdvancedFilters 
-                          ? 'bg-indigo-600 text-white border-indigo-600 shadow-lg shadow-indigo-200' 
-                          : 'bg-white text-slate-400 border-slate-100 hover:border-indigo-200'
-                      }`}
-                    >
-                      <Filter size={14} /> {showAdvancedFilters ? 'Hide Filters' : 'More Filters'}
-                    </button>
-
-                    <button
-                      onClick={() => setCommunityOnly(!communityOnly)}
-                      className={`px-6 py-3.5 rounded-2xl text-[10px] font-black uppercase tracking-widest transition-all border flex items-center gap-2 ${
-                        communityOnly 
-                          ? 'bg-slate-900 text-white border-slate-900 shadow-lg shadow-slate-200' 
-                          : 'bg-white text-slate-400 border-slate-100 hover:border-indigo-200'
-                      }`}
-                    >
-                      <Filter size={14} /> Community Specific
-                    </button>
                   </div>
                 </div>
 
@@ -771,13 +944,19 @@ export default function App() {
                         </div>
                         <div className="space-y-2">
                           <label className="text-[10px] font-black uppercase tracking-widest text-slate-400 ml-1">Target Community</label>
-                          <input
-                            type="text"
-                            placeholder="e.g. STEM, Minority"
-                            value={communityFilter === 'All' ? '' : communityFilter}
-                            onChange={(e) => setCommunityFilter(e.target.value || 'All')}
+                          <select
+                            value={communityFilter}
+                            onChange={(e) => setCommunityFilter(e.target.value)}
                             className="w-full px-4 py-3 bg-slate-50 border border-slate-100 rounded-xl focus:outline-none focus:ring-2 focus:ring-indigo-500/20 text-xs font-medium"
-                          />
+                          >
+                            <option value="All">All Communities</option>
+                            <option value="Women in STEM">Women in STEM</option>
+                            <option value="Minority">Minority</option>
+                            <option value="SC/ST">SC/ST</option>
+                            <option value="Differently Abled">Differently Abled</option>
+                            <option value="Single Mother">Single Mother</option>
+                            <option value="Rural Background">Rural Background</option>
+                          </select>
                         </div>
                       </div>
                       <div className="mt-6 flex justify-end">
@@ -838,22 +1017,76 @@ export default function App() {
                   ))}
                 </div>
               ) : (
-                <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-8">
-                  {filteredResults.map((item) => (
-                    <ScholarshipCard 
-                      key={item.scholarship.id} 
-                      scholarship={item.scholarship} 
-                      match={item.match} 
-                      onApply={handleApply}
-                      applicationStatus={applications.find(a => a.scholarshipId === item.scholarship.id)?.status}
-                      onUpdateStatus={handleUpdateApplicationStatus}
-                      onUpdateNotes={handleUpdateApplicationNotes}
-                      initialNotes={applications.find(a => a.scholarshipId === item.scholarship.id)?.notes}
-                      onSave={handleSave}
-                      isSaved={savedIds.includes(item.scholarship.id)}
-                      onView={handleView}
-                    />
-                  ))}
+                <div className="space-y-16">
+                  {/* Active Scholarships */}
+                  {filteredResults.filter(item => !item.scholarship.deadline.toLowerCase().includes('upcoming')).length > 0 && (
+                    <section>
+                      <div className="flex items-center gap-3 mb-8">
+                        <div className="w-10 h-10 bg-emerald-50 text-emerald-600 rounded-xl flex items-center justify-center">
+                          <Sparkles size={20} />
+                        </div>
+                        <div>
+                          <h2 className="text-xl font-black text-slate-900 uppercase tracking-tight">Active Scholarships</h2>
+                          <p className="text-xs text-slate-400 font-bold uppercase tracking-widest">Open for applications now</p>
+                        </div>
+                      </div>
+                      <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-8">
+                        {filteredResults
+                          .filter(item => !item.scholarship.deadline.toLowerCase().includes('upcoming'))
+                          .map((item) => (
+                            <ScholarshipCard 
+                              key={item.scholarship.id} 
+                              scholarship={item.scholarship} 
+                              match={item.match} 
+                              onApply={handleApply}
+                              applicationStatus={applications.find(a => a.scholarshipId === item.scholarship.id)?.status}
+                              onUpdateStatus={handleUpdateApplicationStatus}
+                              onUpdateNotes={handleUpdateApplicationNotes}
+                              initialNotes={applications.find(a => a.scholarshipId === item.scholarship.id)?.notes}
+                              onSave={handleSave}
+                              isSaved={savedIds.includes(item.scholarship.id)}
+                              onView={handleView}
+                              onSetReminder={handleSetReminder}
+                            />
+                          ))}
+                      </div>
+                    </section>
+                  )}
+
+                  {/* Upcoming Scholarships */}
+                  {filteredResults.filter(item => item.scholarship.deadline.toLowerCase().includes('upcoming')).length > 0 && (
+                    <section className="pt-16 border-t border-slate-100">
+                      <div className="flex items-center gap-3 mb-8">
+                        <div className="w-10 h-10 bg-indigo-50 text-indigo-600 rounded-xl flex items-center justify-center">
+                          <GraduationCap size={20} />
+                        </div>
+                        <div>
+                          <h2 className="text-xl font-black text-slate-900 uppercase tracking-tight">Upcoming Opportunities</h2>
+                          <p className="text-xs text-slate-400 font-bold uppercase tracking-widest">Opening soon - Get your documents ready!</p>
+                        </div>
+                      </div>
+                      <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-8">
+                        {filteredResults
+                          .filter(item => item.scholarship.deadline.toLowerCase().includes('upcoming'))
+                          .map((item) => (
+                            <ScholarshipCard 
+                              key={item.scholarship.id} 
+                              scholarship={item.scholarship} 
+                              match={item.match} 
+                              onApply={handleApply}
+                              applicationStatus={applications.find(a => a.scholarshipId === item.scholarship.id)?.status}
+                              onUpdateStatus={handleUpdateApplicationStatus}
+                              onUpdateNotes={handleUpdateApplicationNotes}
+                              initialNotes={applications.find(a => a.scholarshipId === item.scholarship.id)?.notes}
+                              onSave={handleSave}
+                              isSaved={savedIds.includes(item.scholarship.id)}
+                              onView={handleView}
+                              onSetReminder={handleSetReminder}
+                            />
+                          ))}
+                      </div>
+                    </section>
+                  )}
                 </div>
               )}
 
@@ -977,15 +1210,15 @@ export default function App() {
       <footer className="max-w-7xl mx-auto px-6 py-12 border-t border-slate-100">
         <div className="flex flex-col md:flex-row justify-between items-center gap-8">
           <div className="flex items-center gap-3 opacity-50">
-            <div className="w-8 h-8 bg-slate-900 text-white rounded-lg flex items-center justify-center">
-              <Sparkles size={16} />
+            <div className="w-8 h-8 bg-slate-900 rounded-lg flex items-center justify-center">
+              <Logo size={16} />
             </div>
             <span className="text-sm font-black tracking-tighter text-slate-900">
-              ScholarMatch AI
+              GrantHer
             </span>
           </div>
           <p className="text-slate-400 text-xs font-bold uppercase tracking-widest">
-            © 2026 ScholarMatch AI • Empowering Global Education
+            © 2026 GrantHer • Empowering Global Education
           </p>
           <div className="flex items-center gap-6">
             <a href="#" className="text-slate-400 hover:text-indigo-600 transition-colors font-bold text-xs uppercase tracking-widest">Privacy</a>

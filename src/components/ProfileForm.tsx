@@ -114,9 +114,9 @@ export const ProfileForm: React.FC<ProfileFormProps> = ({ onSubmit, isLoading, i
   const labelClasses = (color: string, isEssential?: boolean) => `text-[10px] font-black uppercase tracking-widest ${color} flex items-center gap-2 mb-1 ${isEssential ? 'after:content-["*"] after:ml-0.5 after:text-rose-500' : ''}`;
 
   return (
-    <form onSubmit={handleSubmit} className="space-y-10 bg-white p-10 rounded-[3rem] shadow-2xl shadow-slate-200/60 border border-slate-50 relative overflow-hidden">
+    <form onSubmit={handleSubmit} className="space-y-8 md:space-y-10 bg-white p-6 md:p-10 rounded-[2rem] md:rounded-[3rem] shadow-2xl shadow-slate-200/60 border border-slate-50 relative overflow-hidden">
       {/* Progress Bar */}
-      <div className="sticky top-0 z-50 bg-white/80 backdrop-blur-md -mx-10 -mt-10 px-10 py-6 border-b border-slate-100 mb-6">
+      <div className="sticky top-0 z-50 bg-white/80 backdrop-blur-md -mx-6 md:-mx-10 -mt-6 md:-mt-10 px-6 md:px-10 py-4 md:py-6 border-b border-slate-100 mb-6">
         <div className="flex items-center justify-between mb-2">
           <div className="flex items-center gap-2">
             <div className={`p-1.5 rounded-lg ${completionPercentage === 100 ? 'bg-emerald-100 text-emerald-600' : 'bg-indigo-100 text-indigo-600'}`}>

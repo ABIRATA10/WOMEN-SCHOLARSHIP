@@ -1,8 +1,33 @@
 import React, { useState, useRef, useEffect } from 'react';
 import { GoogleGenAI } from "@google/genai";
 import { motion, AnimatePresence } from 'motion/react';
-import { MessageCircle, X, Send, Bot, User, Loader2, HelpCircle, AlertTriangle, Info } from 'lucide-react';
+import { MessageCircle, X, Send, Bot, User, Loader2, HelpCircle, AlertTriangle, Info, Menu } from 'lucide-react';
 import ReactMarkdown from 'react-markdown';
+
+const SakhiFlower = ({ size = 24 }: { size?: number }) => (
+  <svg 
+    width={size} 
+    height={size} 
+    viewBox="0 0 100 100" 
+    fill="none" 
+    xmlns="http://www.w3.org/2000/svg"
+  >
+    {/* 5 Petals - Pink */}
+    {[0, 72, 144, 216, 288].map((angle) => (
+      <ellipse
+        key={angle}
+        cx="50"
+        cy="30"
+        rx="15"
+        ry="25"
+        fill="#FF69B4"
+        transform={`rotate(${angle} 50 50)`}
+      />
+    ))}
+    {/* Center - Blue */}
+    <circle cx="50" cy="50" r="12" fill="#4F46E5" />
+  </svg>
+);
 
 const ai = new GoogleGenAI({ apiKey: process.env.GEMINI_API_KEY || "" });
 
@@ -17,7 +42,7 @@ export const SupportChatbot: React.FC = () => {
   const [messages, setMessages] = useState<Message[]>([
     {
       role: 'bot',
-      content: "Hello there, superstar! 🌟 I'm your **Support Pal**, and I am absolutely thrilled to be part of your scholarship journey today! 🎓 Whether you're feeling a bit overwhelmed, looking for that perfect opportunity, or just want to share a win, I'm here with a big smile and a helping hand. 💙 You've got so much potential, and I'm here to help you unlock it! What can I do for you right now? ✨",
+      content: "Hello there, superstar! 🌟 I'm your **Sakhi**, and I am absolutely thrilled to be part of your scholarship journey today! 🎓 Whether you're feeling a bit overwhelmed, looking for that perfect opportunity, or just want to share a win, I'm here with a big smile and a helping hand. 💙 You've got so much potential, and I'm here to help you unlock it! What can I do for you right now? ✨",
       timestamp: new Date()
     }
   ]);
@@ -57,8 +82,9 @@ export const SupportChatbot: React.FC = () => {
         model: "gemini-3-flash-preview",
         config: {
           systemInstruction: `
-            You are the Official Support Chatbot for ScholarMatch AI, but you prefer to be called "Support Pal". 
-            Your goal is to be a warm, incredibly friendly, and deeply encouraging companion for users navigating their scholarship journey.
+            You are the Official Support Chatbot for GrantHer, but you prefer to be called "Sakhi". 
+            Your goal is to be a warm, incredibly friendly, and deeply encouraging companion for women navigating their scholarship journey.
+            "Sakhi" means "friend" in Sanskrit, and you should embody that spirit of sisterhood and support.
             
             Personality Traits:
             - **Radiantly Positive**: Always see the glass as half full! Use words like "wonderful," "amazing," "brilliant," and "exciting."
@@ -67,7 +93,7 @@ export const SupportChatbot: React.FC = () => {
             - **Emoji-Friendly**: Use emojis liberally but naturally to convey warmth (✨, 🎓, 🚀, 💙, 🌟, 🌈, 🤗, 🎈).
 
             Platform Context:
-            - ScholarMatch AI is a scholarship search engine that uses AI to match users with global funding opportunities.
+            - GrantHer is a scholarship search engine that uses AI to match women with global funding opportunities.
             - Users create a profile with their education, income, and goals.
             - The app provides a Dashboard with analytics, a "My Applications" section, and a "Saved" section.
             
@@ -118,7 +144,7 @@ export const SupportChatbot: React.FC = () => {
       {/* Floating Toggle Button */}
       <button
         onClick={() => setIsOpen(!isOpen)}
-        className="fixed left-6 bottom-6 z-[110] w-14 h-14 bg-slate-900 text-white rounded-full flex items-center justify-center shadow-2xl hover:scale-110 transition-transform group"
+        className="fixed left-4 bottom-4 md:left-6 md:bottom-6 z-[110] w-14 h-14 bg-slate-900 text-white rounded-full flex items-center justify-center shadow-2xl hover:scale-110 transition-transform group"
       >
         {isOpen ? <X size={24} /> : <MessageCircle size={24} />}
         <span className="absolute -top-2 -right-2 w-5 h-5 bg-rose-500 rounded-full border-2 border-white flex items-center justify-center text-[10px] font-bold">1</span>
@@ -130,16 +156,16 @@ export const SupportChatbot: React.FC = () => {
             initial={{ opacity: 0, scale: 0.9, y: 20 }}
             animate={{ opacity: 1, scale: 1, y: 0 }}
             exit={{ opacity: 0, scale: 0.9, y: 20 }}
-            className="fixed left-6 bottom-24 z-[110] w-96 max-w-[calc(100vw-3rem)] bg-white rounded-[2.5rem] shadow-2xl border border-slate-100 overflow-hidden flex flex-col h-[600px] max-h-[70vh]"
+            className="fixed left-4 bottom-20 md:left-6 md:bottom-24 z-[110] w-[calc(100vw-2rem)] md:w-96 max-w-[calc(100vw-3rem)] bg-white rounded-[2.5rem] shadow-2xl border border-slate-100 overflow-hidden flex flex-col h-[500px] md:h-[600px] max-h-[80vh]"
           >
             {/* Header */}
             <div className="bg-slate-900 p-6 text-white flex items-center justify-between">
               <div className="flex items-center gap-3">
-                <div className="w-10 h-10 bg-indigo-500 rounded-xl flex items-center justify-center">
-                  <Bot size={24} />
+                <div className="w-10 h-10 bg-white rounded-xl flex items-center justify-center">
+                  <SakhiFlower size={32} />
                 </div>
                 <div>
-                  <h3 className="font-black text-sm uppercase tracking-widest">Support Pal</h3>
+                  <h3 className="font-black text-sm uppercase tracking-widest">Sakhi</h3>
                   <div className="flex items-center gap-1.5">
                     <div className="w-1.5 h-1.5 bg-emerald-400 rounded-full animate-pulse" />
                     <span className="text-[10px] text-slate-400 font-bold uppercase">Online & Ready</span>
@@ -162,9 +188,9 @@ export const SupportChatbot: React.FC = () => {
                 >
                   <div className={`flex gap-3 max-w-[85%] ${msg.role === 'user' ? 'flex-row-reverse' : 'flex-row'}`}>
                     <div className={`w-8 h-8 rounded-lg flex items-center justify-center shrink-0 ${
-                      msg.role === 'user' ? 'bg-indigo-100 text-indigo-600' : 'bg-slate-900 text-white'
+                      msg.role === 'user' ? 'bg-indigo-100 text-indigo-600' : 'bg-white text-white'
                     }`}>
-                      {msg.role === 'user' ? <User size={16} /> : <Bot size={16} />}
+                      {msg.role === 'user' ? <User size={16} /> : <SakhiFlower size={20} />}
                     </div>
                     <div className={`p-4 rounded-2xl text-sm leading-relaxed ${
                       msg.role === 'user' 
@@ -186,8 +212,8 @@ export const SupportChatbot: React.FC = () => {
               {isLoading && (
                 <div className="flex justify-start">
                   <div className="flex gap-3">
-                    <div className="w-8 h-8 bg-slate-900 text-white rounded-lg flex items-center justify-center">
-                      <Bot size={16} />
+                    <div className="w-8 h-8 bg-white text-white rounded-lg flex items-center justify-center">
+                      <SakhiFlower size={20} />
                     </div>
                     <div className="bg-white p-4 rounded-2xl rounded-tl-none border border-slate-100 shadow-sm">
                       <Loader2 className="animate-spin text-indigo-500" size={18} />

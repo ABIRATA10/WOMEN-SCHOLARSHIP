@@ -31,13 +31,23 @@ export const NotificationManager: React.FC = () => {
     // Simulate an initial notification
     const timer = setTimeout(() => {
       addNotification({
-        title: "Welcome to ScholarMatch AI!",
+        title: "Welcome to GrantHer!",
         message: "Complete your profile to get real-time scholarship matches tailored to your background.",
         type: 'info'
       });
     }, 5000);
 
     return () => clearTimeout(timer);
+  }, []);
+
+  useEffect(() => {
+    const handleAddNotification = (e: any) => {
+      if (e.detail) {
+        addNotification(e.detail);
+      }
+    };
+    window.addEventListener('add-notification', handleAddNotification);
+    return () => window.removeEventListener('add-notification', handleAddNotification);
   }, []);
 
   useEffect(() => {

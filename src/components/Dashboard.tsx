@@ -198,20 +198,20 @@ export const Dashboard: React.FC<DashboardProps> = ({
   return (
     <div className="space-y-8">
       {/* Stats Grid */}
-      <div className="grid grid-cols-1 md:grid-cols-4 gap-6">
+      <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-4 gap-4 md:gap-6">
         {stats.map((stat, i) => (
           <motion.div
             key={stat.label}
             initial={{ opacity: 0, y: 20 }}
             animate={{ opacity: 1, y: 0 }}
             transition={{ delay: i * 0.1 }}
-            className="bg-white p-6 rounded-[2.5rem] border border-slate-100 shadow-sm hover:shadow-xl hover:shadow-slate-100 transition-all duration-300 group"
+            className="bg-white p-5 md:p-6 rounded-[2rem] md:rounded-[2.5rem] border border-slate-100 shadow-sm hover:shadow-xl hover:shadow-slate-100 transition-all duration-300 group"
           >
-            <div className={`w-14 h-14 bg-gradient-to-br ${stat.color} rounded-2xl flex items-center justify-center mb-6 group-hover:scale-110 transition-transform duration-500`}>
+            <div className={`w-12 h-12 md:w-14 md:h-14 bg-gradient-to-br ${stat.color} rounded-2xl flex items-center justify-center mb-4 md:mb-6 group-hover:scale-110 transition-transform duration-500`}>
               {stat.icon}
             </div>
             <p className="text-[10px] font-black text-slate-400 uppercase tracking-widest mb-1">{stat.label}</p>
-            <p className={`text-3xl font-black ${stat.textColor} tracking-tight`}>{stat.value}</p>
+            <p className={`text-2xl md:text-3xl font-black ${stat.textColor} tracking-tight`}>{stat.value}</p>
           </motion.div>
         ))}
       </div>
@@ -220,7 +220,7 @@ export const Dashboard: React.FC<DashboardProps> = ({
       <motion.div
         initial={{ opacity: 0, y: 20 }}
         animate={{ opacity: 1, y: 0 }}
-        className="bg-white p-8 rounded-[3rem] border border-slate-100 shadow-sm"
+        className="bg-white p-6 md:p-8 rounded-[2rem] md:rounded-[3rem] border border-slate-100 shadow-sm"
       >
         <div className="flex items-center justify-between mb-8">
           <div>
@@ -263,23 +263,23 @@ export const Dashboard: React.FC<DashboardProps> = ({
         <motion.div
           initial={{ opacity: 0, scale: 0.95 }}
           animate={{ opacity: 1, scale: 1 }}
-          className="lg:col-span-7 bg-white p-10 rounded-[3.5rem] border border-slate-100 shadow-sm"
+          className="lg:col-span-7 bg-white p-6 md:p-10 rounded-[2rem] md:rounded-[3.5rem] border border-slate-100 shadow-sm"
         >
-          <div className="flex items-center justify-between mb-10">
+          <div className="flex items-center justify-between mb-6 md:mb-10">
             <div>
-              <h3 className="text-2xl font-black text-slate-900 flex items-center gap-3">
-                <div className="w-10 h-10 bg-indigo-50 rounded-xl flex items-center justify-center">
-                  <BarChart3 size={20} className="text-indigo-600" />
+              <h3 className="text-xl md:text-2xl font-black text-slate-900 flex items-center gap-3">
+                <div className="w-8 h-8 md:w-10 md:h-10 bg-indigo-50 rounded-xl flex items-center justify-center">
+                  <BarChart3 size={18} className="text-indigo-600" />
                 </div>
                 Topic Interest Analysis
               </h3>
-              <p className="text-xs text-slate-400 font-bold uppercase tracking-widest mt-2">Based on your scholarship matches</p>
+              <p className="text-[10px] text-slate-400 font-bold uppercase tracking-widest mt-2">Based on your scholarship matches</p>
             </div>
           </div>
           
-          <div className="h-[350px] w-full">
+          <div className="h-[300px] md:h-[350px] w-full">
             <ResponsiveContainer width="100%" height="100%">
-              <BarChart data={interestData} layout="vertical" margin={{ left: 20 }}>
+              <BarChart data={interestData} layout="vertical" margin={{ left: 0 }}>
                 <CartesianGrid strokeDasharray="3 3" horizontal={false} stroke="#f1f5f9" />
                 <XAxis type="number" hide />
                 <YAxis 
@@ -287,8 +287,8 @@ export const Dashboard: React.FC<DashboardProps> = ({
                   type="category" 
                   axisLine={false} 
                   tickLine={false} 
-                  tick={{ fontSize: 12, fontWeight: 800, fill: '#64748b' }}
-                  width={100}
+                  tick={{ fontSize: 10, fontWeight: 800, fill: '#64748b' }}
+                  width={80}
                 />
                 <Tooltip 
                   cursor={{ fill: '#f8fafc' }}
@@ -305,29 +305,29 @@ export const Dashboard: React.FC<DashboardProps> = ({
           initial={{ opacity: 0, scale: 0.95 }}
           animate={{ opacity: 1, scale: 1 }}
           transition={{ delay: 0.2 }}
-          className="lg:col-span-5 bg-white p-10 rounded-[3.5rem] border border-slate-100 shadow-sm"
+          className="lg:col-span-5 bg-white p-6 md:p-10 rounded-[2rem] md:rounded-[3.5rem] border border-slate-100 shadow-sm"
         >
-          <div className="flex items-center justify-between mb-10">
+          <div className="flex items-center justify-between mb-6 md:mb-10">
             <div>
-              <h3 className="text-2xl font-black text-slate-900 flex items-center gap-3">
-                <div className="w-10 h-10 bg-rose-50 rounded-xl flex items-center justify-center">
-                  <PieChartIcon size={20} className="text-rose-600" />
+              <h3 className="text-xl md:text-2xl font-black text-slate-900 flex items-center gap-3">
+                <div className="w-8 h-8 md:w-10 md:h-10 bg-rose-50 rounded-xl flex items-center justify-center">
+                  <PieChartIcon size={18} className="text-rose-600" />
                 </div>
                 Category Distribution
               </h3>
-              <p className="text-xs text-slate-400 font-bold uppercase tracking-widest mt-2">Scholarship types breakdown</p>
+              <p className="text-[10px] text-slate-400 font-bold uppercase tracking-widest mt-2">Scholarship types breakdown</p>
             </div>
           </div>
 
-          <div className="h-[350px] w-full">
+          <div className="h-[300px] md:h-[350px] w-full">
             <ResponsiveContainer width="100%" height="100%">
               <PieChart>
                 <Pie
                   data={categoryData}
                   cx="50%"
                   cy="50%"
-                  innerRadius={70}
-                  outerRadius={110}
+                  innerRadius={window.innerWidth < 768 ? 50 : 70}
+                  outerRadius={window.innerWidth < 768 ? 80 : 110}
                   paddingAngle={8}
                   dataKey="value"
                 >
@@ -354,21 +354,21 @@ export const Dashboard: React.FC<DashboardProps> = ({
           initial={{ opacity: 0, scale: 0.95 }}
           animate={{ opacity: 1, scale: 1 }}
           transition={{ delay: 0.3 }}
-          className="lg:col-span-12 bg-white p-10 rounded-[3.5rem] border border-slate-100 shadow-sm"
+          className="lg:col-span-12 bg-white p-6 md:p-10 rounded-[2rem] md:rounded-[3.5rem] border border-slate-100 shadow-sm"
         >
-          <div className="flex items-center justify-between mb-10">
+          <div className="flex items-center justify-between mb-6 md:mb-10">
             <div>
-              <h3 className="text-2xl font-black text-slate-900 flex items-center gap-3">
-                <div className="w-10 h-10 bg-emerald-50 rounded-xl flex items-center justify-center">
-                  <Activity size={20} className="text-emerald-600" />
+              <h3 className="text-xl md:text-2xl font-black text-slate-900 flex items-center gap-3">
+                <div className="w-8 h-8 md:w-10 md:h-10 bg-emerald-50 rounded-xl flex items-center justify-center">
+                  <Activity size={18} className="text-emerald-600" />
                 </div>
                 Application Pipeline
               </h3>
-              <p className="text-xs text-slate-400 font-bold uppercase tracking-widest mt-2">Track your application progress</p>
+              <p className="text-[10px] text-slate-400 font-bold uppercase tracking-widest mt-2">Track your application progress</p>
             </div>
           </div>
 
-          <div className="h-[300px] w-full">
+          <div className="h-[250px] md:h-[300px] w-full">
             <ResponsiveContainer width="100%" height="100%">
               <BarChart data={applicationStatusData}>
                 <CartesianGrid strokeDasharray="3 3" vertical={false} stroke="#f1f5f9" />
@@ -376,14 +376,14 @@ export const Dashboard: React.FC<DashboardProps> = ({
                   dataKey="name" 
                   axisLine={false} 
                   tickLine={false} 
-                  tick={{ fontSize: 12, fontWeight: 800, fill: '#64748b' }}
+                  tick={{ fontSize: 10, fontWeight: 800, fill: '#64748b' }}
                 />
-                <YAxis axisLine={false} tickLine={false} tick={{ fontSize: 12, fontWeight: 800, fill: '#64748b' }} />
+                <YAxis axisLine={false} tickLine={false} tick={{ fontSize: 10, fontWeight: 800, fill: '#64748b' }} />
                 <Tooltip 
                   cursor={{ fill: '#f8fafc' }}
                   contentStyle={{ borderRadius: '1.5rem', border: 'none', boxShadow: '0 20px 25px -5px rgb(0 0 0 / 0.1)', padding: '1rem' }}
                 />
-                <Bar dataKey="value" radius={[12, 12, 0, 0]} barSize={60}>
+                <Bar dataKey="value" radius={[12, 12, 0, 0]} barSize={window.innerWidth < 768 ? 40 : 60}>
                   {applicationStatusData.map((entry, index) => (
                     <Cell 
                       key={`cell-${index}`} 
@@ -406,37 +406,37 @@ export const Dashboard: React.FC<DashboardProps> = ({
         initial={{ opacity: 0, y: 20 }}
         animate={{ opacity: 1, y: 0 }}
         transition={{ delay: 0.3 }}
-        className="bg-white p-10 rounded-[3.5rem] border border-slate-100 shadow-sm"
+        className="bg-white p-6 md:p-10 rounded-[2rem] md:rounded-[3.5rem] border border-slate-100 shadow-sm"
       >
-        <div className="flex flex-col md:flex-row md:items-center justify-between gap-8 mb-12">
+        <div className="flex flex-col md:flex-row md:items-center justify-between gap-6 md:gap-8 mb-8 md:mb-12">
           <div>
-            <h3 className="text-2xl font-black text-slate-900 flex items-center gap-3">
-              <div className="w-10 h-10 bg-rose-50 rounded-xl flex items-center justify-center">
-                <CalendarIcon size={20} className="text-rose-600" />
+            <h3 className="text-xl md:text-2xl font-black text-slate-900 flex items-center gap-3">
+              <div className="w-8 h-8 md:w-10 md:h-10 bg-rose-50 rounded-xl flex items-center justify-center">
+                <CalendarIcon size={18} className="text-rose-600" />
               </div>
               Deadline Calendar
             </h3>
-            <p className="text-xs text-slate-400 font-bold uppercase tracking-widest mt-2">Track upcoming scholarship deadlines</p>
+            <p className="text-[10px] text-slate-400 font-bold uppercase tracking-widest mt-2">Track upcoming scholarship deadlines</p>
           </div>
           
-          <div className="flex items-center gap-6 bg-slate-50 p-3 rounded-[1.5rem] border border-slate-100 shadow-inner">
-            <button onClick={prevMonth} className="p-3 hover:bg-white rounded-xl transition-all text-slate-400 hover:text-indigo-600 shadow-sm hover:shadow-indigo-100">
-              <ChevronLeft size={20} />
+          <div className="flex items-center justify-between md:justify-start gap-4 md:gap-6 bg-slate-50 p-2 md:p-3 rounded-[1.25rem] md:rounded-[1.5rem] border border-slate-100 shadow-inner">
+            <button onClick={prevMonth} className="p-2 md:p-3 hover:bg-white rounded-xl transition-all text-slate-400 hover:text-indigo-600 shadow-sm hover:shadow-indigo-100">
+              <ChevronLeft className="w-4 h-4 md:w-5 md:h-5" />
             </button>
-            <span className="text-sm font-black uppercase tracking-[0.2em] text-slate-900 min-w-[160px] text-center">
+            <span className="text-xs md:text-sm font-black uppercase tracking-[0.1em] md:tracking-[0.2em] text-slate-900 min-w-[120px] md:min-w-[160px] text-center">
               {monthName} {year}
             </span>
-            <button onClick={nextMonth} className="p-3 hover:bg-white rounded-xl transition-all text-slate-400 hover:text-indigo-600 shadow-sm hover:shadow-indigo-100">
-              <ChevronRight size={20} />
+            <button onClick={nextMonth} className="p-2 md:p-3 hover:bg-white rounded-xl transition-all text-slate-400 hover:text-indigo-600 shadow-sm hover:shadow-indigo-100">
+              <ChevronRight className="w-4 h-4 md:w-5 md:h-5" />
             </button>
           </div>
         </div>
 
-        <div className="grid grid-cols-1 lg:grid-cols-12 gap-12">
+        <div className="grid grid-cols-1 lg:grid-cols-12 gap-8 md:gap-12">
           <div className="lg:col-span-8">
-            <div className="grid grid-cols-7 gap-3 mb-6">
+            <div className="grid grid-cols-7 gap-1.5 md:gap-3 mb-6">
               {['Sun', 'Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat'].map(day => (
-                <div key={day} className="text-center text-[10px] font-black uppercase tracking-widest text-slate-400 py-3">
+                <div key={day} className="text-center text-[8px] md:text-[10px] font-black uppercase tracking-widest text-slate-400 py-2 md:py-3">
                   {day}
                 </div>
               ))}
@@ -454,7 +454,7 @@ export const Dashboard: React.FC<DashboardProps> = ({
                     whileHover={{ scale: 1.05 }}
                     whileTap={{ scale: 0.95 }}
                     onClick={() => setSelectedDate(dateKey)}
-                    className={`aspect-square rounded-[1.25rem] flex flex-col items-center justify-center relative transition-all border-2 ${
+                    className={`aspect-square rounded-xl md:rounded-[1.25rem] flex flex-col items-center justify-center relative transition-all border-2 ${
                       isSelected 
                         ? 'bg-indigo-600 text-white border-indigo-600 shadow-xl shadow-indigo-100 z-10' 
                         : hasDeadlines
@@ -462,12 +462,12 @@ export const Dashboard: React.FC<DashboardProps> = ({
                         : 'bg-white text-slate-600 border-slate-50 hover:border-slate-200'
                     } ${isToday && !isSelected ? 'ring-2 ring-indigo-500 ring-offset-4' : ''}`}
                   >
-                    <span className="text-base font-black">{day}</span>
+                    <span className="text-sm md:text-base font-black">{day}</span>
                     {hasDeadlines && !isSelected && (
-                      <div className="absolute bottom-3 w-1.5 h-1.5 bg-rose-500 rounded-full shadow-sm shadow-rose-200" />
+                      <div className="absolute bottom-1.5 md:bottom-3 w-1 h-1 md:w-1.5 md:h-1.5 bg-rose-500 rounded-full shadow-sm shadow-rose-200" />
                     )}
                     {hasDeadlines && (
-                      <span className={`absolute top-2 right-2 text-[9px] font-black w-5 h-5 rounded-full flex items-center justify-center ${
+                      <span className={`absolute top-1 right-1 md:top-2 md:right-2 text-[8px] md:text-[9px] font-black w-4 h-4 md:w-5 md:h-5 rounded-full flex items-center justify-center ${
                         isSelected ? 'bg-white/20 text-white' : 'bg-rose-100 text-rose-600'
                       }`}>
                         {hasDeadlines.length}
@@ -480,12 +480,12 @@ export const Dashboard: React.FC<DashboardProps> = ({
           </div>
 
           <div className="lg:col-span-4">
-            <div className="p-8 bg-slate-50 rounded-[2.5rem] border border-slate-100 h-full min-h-[400px]">
-              <div className="flex items-center gap-3 mb-8">
-                <div className="w-8 h-8 bg-white rounded-lg flex items-center justify-center shadow-sm">
-                  <Activity size={16} className="text-indigo-600" />
+            <div className="p-6 md:p-8 bg-slate-50 rounded-[2rem] md:rounded-[2.5rem] border border-slate-100 h-full min-h-[300px] md:min-h-[400px]">
+              <div className="flex items-center gap-3 mb-6 md:mb-8">
+                <div className="w-7 h-7 md:w-8 md:h-8 bg-white rounded-lg flex items-center justify-center shadow-sm">
+                  <Activity className="w-3.5 h-3.5 md:w-4 md:h-4 text-indigo-600" />
                 </div>
-                <h4 className="text-xs font-black uppercase tracking-widest text-slate-400">
+                <h4 className="text-[10px] md:text-xs font-black uppercase tracking-widest text-slate-400">
                   {selectedDate ? `Deadlines for ${new Date(selectedDate).toLocaleDateString('en-US', { month: 'short', day: 'numeric' })}` : 'Select a date'}
                 </h4>
               </div>
@@ -538,49 +538,49 @@ export const Dashboard: React.FC<DashboardProps> = ({
           initial={{ opacity: 0, y: 20 }}
           animate={{ opacity: 1, y: 0 }}
           transition={{ delay: 0.4 }}
-          className="lg:col-span-2 bg-slate-900 p-12 rounded-[3.5rem] text-white relative overflow-hidden group"
+          className="lg:col-span-2 bg-slate-900 p-8 md:p-12 rounded-[2.5rem] md:rounded-[3.5rem] text-white relative overflow-hidden group"
         >
-          <div className="absolute top-0 right-0 w-96 h-96 bg-indigo-500/20 rounded-full blur-[100px] -mr-32 -mt-32 group-hover:bg-indigo-500/30 transition-all duration-700" />
-          <div className="absolute bottom-0 left-0 w-64 h-64 bg-rose-500/10 rounded-full blur-[80px] -ml-32 -mb-32" />
+          <div className="absolute top-0 right-0 w-64 md:w-96 h-64 md:h-96 bg-indigo-500/20 rounded-full blur-[80px] md:blur-[100px] -mr-32 -mt-32 group-hover:bg-indigo-500/30 transition-all duration-700" />
+          <div className="absolute bottom-0 left-0 w-48 md:w-64 h-48 md:h-64 bg-rose-500/10 rounded-full blur-[60px] md:blur-[80px] -ml-32 -mb-32" />
           
           <div className="relative z-10">
-            <div className="flex items-center gap-3 mb-8">
-              <div className="w-12 h-12 bg-white/10 backdrop-blur-md rounded-2xl flex items-center justify-center border border-white/10">
-                <Lightbulb className="text-indigo-400" size={24} />
+            <div className="flex items-center gap-3 mb-6 md:mb-8">
+              <div className="w-10 h-10 md:w-12 md:h-12 bg-white/10 backdrop-blur-md rounded-2xl flex items-center justify-center border border-white/10">
+                <Lightbulb className="w-5 h-5 md:w-6 md:h-6 text-indigo-400" />
               </div>
               <div>
-                <h3 className="text-2xl font-black tracking-tight">AI Strategic Insight</h3>
-                <p className="text-slate-400 text-xs font-bold uppercase tracking-widest">Personalized Strategy</p>
+                <h3 className="text-xl md:text-2xl font-black tracking-tight">AI Strategic Insight</h3>
+                <p className="text-slate-400 text-[10px] font-bold uppercase tracking-widest">Personalized Strategy</p>
               </div>
             </div>
 
-            <p className="text-xl text-slate-200 leading-relaxed max-w-3xl font-medium">
+            <p className="text-base md:text-xl text-slate-200 leading-relaxed max-w-3xl font-medium">
               Based on your profile and browsing history, you have a high affinity for <span className="text-indigo-400 font-black underline decoration-indigo-400/30 underline-offset-8">{interestData[0]?.name || 'specialized'}</span> programs. 
               We've identified that <span className="text-rose-400 font-black underline decoration-rose-400/30 underline-offset-8">{categoryData.sort((a,b) => b.value - a.value)[0]?.name || 'merit-based'}</span> scholarships 
               currently offer your best success rate. Focus your next 3 applications here to build momentum.
             </p>
 
-            <div className="mt-12 flex flex-wrap items-center gap-8">
+            <div className="mt-8 md:mt-12 flex flex-col sm:flex-row sm:items-center gap-6 md:gap-8">
               <div className="flex items-center gap-4">
                 <div className="flex -space-x-3">
                   {[1, 2, 3, 4].map(i => (
-                    <div key={i} className="w-12 h-12 rounded-full border-4 border-slate-900 bg-slate-800 flex items-center justify-center overflow-hidden ring-1 ring-white/10">
+                    <div key={i} className="w-10 h-10 md:w-12 md:h-12 rounded-full border-4 border-slate-900 bg-slate-800 flex items-center justify-center overflow-hidden ring-1 ring-white/10">
                       <img src={`https://picsum.photos/seed/${i + 20}/48/48`} alt="User" referrerPolicy="no-referrer" />
                     </div>
                   ))}
                 </div>
                 <div>
-                  <p className="text-sm font-black">2,481 Students</p>
-                  <p className="text-[10px] text-slate-400 font-bold uppercase tracking-widest">Matching your profile</p>
+                  <p className="text-xs md:text-sm font-black">2,481 Students</p>
+                  <p className="text-[9px] md:text-[10px] text-slate-400 font-bold uppercase tracking-widest">Matching your profile</p>
                 </div>
               </div>
 
               <div className="h-10 w-px bg-white/10 hidden md:block" />
 
               <div className="flex items-center gap-3">
-                <div className="px-4 py-2 bg-white/5 rounded-xl border border-white/10 backdrop-blur-sm">
-                  <span className="text-indigo-400 font-black text-lg">84%</span>
-                  <span className="ml-2 text-[10px] text-slate-400 font-bold uppercase tracking-widest">Avg Match</span>
+                <div className="px-3 md:px-4 py-2 bg-white/5 rounded-xl border border-white/10 backdrop-blur-sm">
+                  <span className="text-indigo-400 font-black text-base md:text-lg">84%</span>
+                  <span className="ml-2 text-[9px] md:text-[10px] text-slate-400 font-bold uppercase tracking-widest">Avg Match</span>
                 </div>
               </div>
             </div>
@@ -591,7 +591,7 @@ export const Dashboard: React.FC<DashboardProps> = ({
           initial={{ opacity: 0, y: 20 }}
           animate={{ opacity: 1, y: 0 }}
           transition={{ delay: 0.5 }}
-          className="bg-white p-10 rounded-[3.5rem] border border-slate-100 shadow-sm"
+          className="bg-white p-6 md:p-10 rounded-[2rem] md:rounded-[3.5rem] border border-slate-100 shadow-sm"
         >
           <div className="flex items-center gap-3 mb-8">
             <div className="w-10 h-10 bg-slate-50 rounded-xl flex items-center justify-center">

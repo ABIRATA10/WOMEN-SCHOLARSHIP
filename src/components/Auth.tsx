@@ -4,9 +4,7 @@ import { Mail, Lock, User as UserIcon, ArrowRight, Sparkles, LogIn, Phone, Eye, 
 import { User } from '../types';
 import { Logo } from './Logo';
 import { useLanguage } from '../contexts/LanguageContext';
-const API_URL = import.meta.env.VITE_API_URL || '';
-
-
+const API_URL = import.meta.env.VITE_API_URL || ''
 
 interface AuthProps {
   onLogin: (user: User) => void;

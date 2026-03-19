@@ -37,7 +37,7 @@ export const Auth: React.FC<AuthProps> = ({ onLogin }) => {
     const handleMessage = (event: MessageEvent) => {
       // Validate origin is from AI Studio preview or localhost
       const origin = event.origin;
-      if (!origin.endsWith('.run.app') && !origin.includes('localhost')) && !origin.endsWith('.railway.app') {
+      if (!origin.endsWith('.run.app') && !origin.includes('localhost') && !origin.endsWith('.railway.app')) {
         return;
       }
       if (event.data?.type === 'OAUTH_AUTH_SUCCESS') {

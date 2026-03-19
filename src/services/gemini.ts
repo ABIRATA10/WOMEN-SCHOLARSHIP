@@ -8,20 +8,35 @@ if (!apiKey) {
 }
 const ai = new GoogleGenAI({ apiKey });
 
+const API_URL = import.meta.env.VITE_API_URL || '';
+
 export async function findScholarships(
   userProfile: UserProfile
 ): Promise<ScholarshipMatch[]> {
-  const prompt = `
-    As an expert financial aid advisor, perform an exhaustive real-time search for ALL available and upcoming scholarships worldwide for the following user profile.
+  let dbScholarships = [];
+  try {
+    const res = await fetch(`${API_URL}/api/scholarships`);
+    if (res.ok) {
+      dbScholarships = await res.json();
+    }
+  } catch (err) {
+    console.error("Failed to fetch DB scholarships:", err);
+  }
+
+    const prompt = `
+    Perform an exhaustive real-time search for ALL available and upcoming scholarships worldwide for the following user profile.
     
     User Profile:
     ${JSON.stringify(userProfile, null, 2)}
     
     Local Scholarship Database (Prioritize these if they match the user's profile):
     ${LOCAL_SCHOLARSHIP_DATA}
+
+    Database Scholarships (Prioritize these as well):
+    ${JSON.stringify(dbScholarships, null, 2)}
     
     Tasks:
-    1. Use the Local Scholarship Database above AND Google Search to scan the entire internet for high-quality scholarships (Government, Private, NGO, University-specific). 
+    1. Use the Local Scholarship Database and Database Scholarships above AND Google Search to scan the entire internet for high-quality scholarships (Government, Private, NGO, University-specific). 
     2. Prioritize:
        - Scholarships currently accepting applications.
        - Upcoming scholarships (those opening in the next 6-12 months).
@@ -29,6 +44,7 @@ export async function findScholarships(
        - Local opportunities in ${userProfile.country} and ${userProfile.state}. (e.g., if the user is from Odisha, search for e-Medhabruti, KALIA/Krusi Vidya, Gopabandhu Sikhya Sahayata Yojana, etc.)
        - Global opportunities (USA, UK, Europe, etc.) that accept international students from ${userProfile.country}.
        - If the user has set a profile completion deadline (${userProfile.profileDeadline}), prioritize scholarships with deadlines that align with or follow this date, ensuring the user has enough time to apply after completing their profile.
+       - CRITICAL: Leverage richer schema fields from the Database Scholarships to make highly accurate matches. Specifically, check if the user's profile matches the \`eligible_categories\`, \`eligible_states\`, \`eligible_courses\`, \`max_family_income\`, \`gender\`, \`min_percentage\`, and \`disability_required\` fields. For example, if a scholarship has \`max_family_income\` of 250000, and the user's \`incomeBracket\` is "> 8L", DO NOT match them. If a scholarship requires \`disability_required\` = 1, and the user has no disability, DO NOT match them.
     3. For each scholarship found, provide:
        - A unique ID
        - Title
@@ -56,6 +72,7 @@ export async function findScholarships(
       model: "gemini-3-flash-preview",
       contents: prompt,
       config: {
+        systemInstruction: "You are an expert financial aid advisor and scholarship matching engine. Your goal is to find the most relevant, accurate, and diverse scholarships for the user based on their profile. You must return the results strictly as a JSON array of objects following the provided schema. Ensure the links are real and the amounts are accurate. Do not hallucinate scholarships.",
         tools: [{ googleSearch: {} }],
         responseMimeType: "application/json",
         responseSchema: {
@@ -105,7 +122,17 @@ export async function findScholarships(
       throw new Error("The AI advisor couldn't generate a response. This might be due to a temporary connection issue or high traffic. Please try again in a few moments! ✨");
     }
 
-    const parsed = JSON.parse(response.text);
+    let text = response.text;
+    if (text.startsWith("```json")) {
+      text = text.replace(/^```json\n/, "").replace(/\n```$/, "");
+    } else if (text.startsWith("```")) {
+      text = text.replace(/^```\n/, "").replace(/\n```$/, "");
+    }
+
+    let parsed = JSON.parse(text);
+    if (parsed && !Array.isArray(parsed) && parsed.scholarships && Array.isArray(parsed.scholarships)) {
+      parsed = parsed.scholarships;
+    }
     return Array.isArray(parsed) ? parsed : [];
   } catch (error: any) {
     console.error("Error finding scholarships:", error);

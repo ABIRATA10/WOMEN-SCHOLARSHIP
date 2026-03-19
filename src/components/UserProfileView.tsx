@@ -13,6 +13,7 @@ interface UserProfileViewProps {
   onSave: (id: string) => void;
   onApply: (id: string) => void;
   onUpdateProfile: (profile: UserProfile) => void;
+  onAutoSave?: (profile: UserProfile) => void;
   onUpdateStatus: (id: string, status: any) => void;
   onUpdateNotes: (id: string, notes: string) => void;
   isLoading: boolean;
@@ -27,6 +28,7 @@ export const UserProfileView: React.FC<UserProfileViewProps> = ({
   onSave,
   onApply,
   onUpdateProfile,
+  onAutoSave,
   onUpdateStatus,
   onUpdateNotes,
   isLoading,
@@ -257,6 +259,7 @@ export const UserProfileView: React.FC<UserProfileViewProps> = ({
                 onUpdateProfile(updated);
                 setActiveTab('overview');
               }} 
+              onAutoSave={onAutoSave}
               isLoading={isLoading} 
               initialData={profile} 
             />

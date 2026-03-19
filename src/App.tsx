@@ -7,6 +7,7 @@ import { ApplicationAssistant } from './components/ApplicationAssistant';
 import { Dashboard } from './components/Dashboard';
 import { SupportChatbot } from './components/SupportChatbot';
 import { NotificationManager } from './components/NotificationManager';
+import { AdminPortal } from './components/AdminPortal';
 import { UserProfile, Scholarship, MatchResult, User as UserType, ScholarshipMatch, Application, ApplicationStatus, Reminder } from './types';
 import { findScholarships } from './services/gemini';
 import { Sparkles, GraduationCap, Filter, Search, ArrowLeft, Globe, MapPin, User, LogOut, LayoutDashboard, BookmarkCheck, Heart, Bot, AlertTriangle, Clock, RefreshCw, History, Bell, Menu, X } from 'lucide-react';
@@ -40,6 +41,7 @@ export default function App() {
   const [showAdvancedFilters, setShowAdvancedFilters] = React.useState(false);
   const [communityOnly, setCommunityOnly] = React.useState(false);
   const [amountFilter, setAmountFilter] = React.useState<string>('All');
+  const [deadlineFilter, setDeadlineFilter] = React.useState<string>('All');
   const [providerFilter, setProviderFilter] = React.useState<string>('All');
   const [communityFilter, setCommunityFilter] = React.useState<string>('All');
   const [searchQuery, setSearchQuery] = React.useState('');
@@ -47,7 +49,7 @@ export default function App() {
     const saved = localStorage.getItem('scholar_profile');
     return saved ? 'Results' : 'Landing';
   });
-  const [sortBy, setSortBy] = React.useState<'Match' | 'DeadlineAsc' | 'DeadlineDesc' | 'AmountDesc'>('Match');
+  const [sortBy, setSortBy] = React.useState<'Match' | 'DeadlineAsc' | 'DeadlineDesc' | 'AmountDesc' | 'ProviderAsc'>('Match');
   const [applications, setApplications] = React.useState<Application[]>(() => {
     const saved = localStorage.getItem('scholar_applications');
     if (saved) return JSON.parse(saved);
@@ -84,8 +86,11 @@ export default function App() {
   const [isAssistantOpen, setIsAssistantOpen] = React.useState(false);
   const [showLogoutConfirm, setShowLogoutConfirm] = React.useState(false);
   const [isMenuOpen, setIsMenuOpen] = React.useState(false);
+  const [isAdminPortalOpen, setIsAdminPortalOpen] = React.useState(false);
   const [reminders, setReminders] = React.useState<Reminder[]>([]);
   const { language, setLanguage, t } = useLanguage();
+
+  const isAdmin = currentUser?.email && import.meta.env.VITE_ADMIN_EMAILS?.split(',').map((e: string) => e.trim()).includes(currentUser.email);
 
   // Persist data
   React.useEffect(() => {
@@ -128,13 +133,23 @@ export default function App() {
     localStorage.setItem('scholar_search_history', JSON.stringify(searchHistory));
   }, [searchHistory]);
 
-  // Fetch reminders
+  // Fetch reminders and profile
   React.useEffect(() => {
     if (currentUser) {
       fetch(`${API_URL}/api/reminders/${currentUser.id}`)
         .then(res => res.json())
         .then(data => setReminders(data))
         .catch(err => console.error("Failed to fetch reminders", err));
+
+      fetch(`${API_URL}/api/profile/${currentUser.id}`)
+        .then(res => {
+          if (res.ok) return res.json();
+          throw new Error('Profile not found');
+        })
+        .then(data => {
+          if (data) setProfile(data);
+        })
+        .catch(err => console.error("Failed to fetch profile", err));
     }
   }, [currentUser]);
 
@@ -184,6 +199,13 @@ export default function App() {
     setProfile(newProfile);
     setView('Results');
     try {
+      if (currentUser) {
+        await fetch(`${API_URL}/api/profile/${currentUser.id}`, {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify(newProfile)
+        });
+      }
       const searchResults = await findScholarships(newProfile);
       setResults(searchResults);
     } catch (err: any) {
@@ -191,6 +213,21 @@ export default function App() {
       setResults([]);
     } finally {
       setIsLoading(false);
+    }
+  };
+
+  const handleAutoSave = async (newProfile: UserProfile) => {
+    setProfile(newProfile);
+    if (currentUser) {
+      try {
+        await fetch(`${API_URL}/api/profile/${currentUser.id}`, {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify(newProfile)
+        });
+      } catch (err) {
+        console.error("Failed to auto-save profile:", err);
+      }
     }
   };
 
@@ -231,6 +268,20 @@ export default function App() {
       else if (amountFilter === '10000+') matchesAmount = amount > 10000;
     }
 
+    let matchesDeadline = true;
+    if (deadlineFilter !== 'All') {
+      const deadline = parseDeadline(s.deadline);
+      const now = Date.now();
+      const oneMonth = 30 * 24 * 60 * 60 * 1000;
+      const threeMonths = 90 * 24 * 60 * 60 * 1000;
+      const sixMonths = 180 * 24 * 60 * 60 * 1000;
+      
+      if (deadlineFilter === 'Closing Soon') matchesDeadline = deadline > now && deadline <= now + oneMonth;
+      else if (deadlineFilter === 'Next 3 Months') matchesDeadline = deadline > now && deadline <= now + threeMonths;
+      else if (deadlineFilter === 'Next 6 Months') matchesDeadline = deadline > now && deadline <= now + sixMonths;
+      else if (deadlineFilter === 'Rolling/Upcoming') matchesDeadline = s.deadline.toLowerCase().includes('rolling') || s.deadline.toLowerCase().includes('upcoming');
+    }
+
     const matchesSearch = s.title.toLowerCase().includes(searchQuery.toLowerCase()) || 
                          s.provider.toLowerCase().includes(searchQuery.toLowerCase()) ||
                          s.description.toLowerCase().includes(searchQuery.toLowerCase()) ||
@@ -239,7 +290,7 @@ export default function App() {
     
     return matchesFilter && matchesScope && matchesMajor && matchesGpa && matchesLocation && 
            matchesType && matchesCommunityOnly && matchesSearch && matchesProvider && 
-           matchesCommunity && matchesAmount;
+           matchesCommunity && matchesAmount && matchesDeadline;
   }).sort((a, b) => {
     // Primary sort: Scope (State > National > Global)
     const scopePriority = { 'State': 1, 'National': 2, 'Global': 3 };
@@ -261,7 +312,10 @@ export default function App() {
     }
     const dateA = parseDeadline(a.scholarship.deadline);
     const dateB = parseDeadline(b.scholarship.deadline);
-    return sortBy === 'DeadlineAsc' ? dateA - dateB : dateB - dateA;
+    if (sortBy === 'DeadlineAsc') return dateA - dateB;
+    if (sortBy === 'DeadlineDesc') return dateB - dateA;
+    if (sortBy === 'ProviderAsc') return a.scholarship.provider.localeCompare(b.scholarship.provider);
+    return 0;
   });
 
   const handleApply = (id: string) => {
@@ -355,6 +409,16 @@ export default function App() {
     return <Auth onLogin={setCurrentUser} />;
   }
 
+  if (isAdminPortalOpen) {
+    return (
+      <AdminPortal 
+        currentUser={currentUser} 
+        onLogout={handleLogout} 
+        onClose={() => setIsAdminPortalOpen(false)} 
+      />
+    );
+  }
+
   return (
     <div className="min-h-screen bg-[#F8FAFC] font-sans text-slate-900 selection:bg-indigo-100 selection:text-indigo-900">
       {/* Dynamic Background */}
@@ -434,6 +498,14 @@ export default function App() {
                 >
                   <User size={14} /> {view === 'Profile' ? 'Back to Results' : 'My Profile'}
                 </button>
+                {isAdmin && (
+                  <button 
+                    onClick={() => setIsAdminPortalOpen(true)}
+                    className="flex items-center gap-2 px-6 py-2.5 bg-emerald-600 hover:bg-emerald-700 text-white rounded-full text-xs font-black uppercase tracking-widest transition-all shadow-lg shadow-emerald-200"
+                  >
+                    <LayoutDashboard size={14} /> Admin
+                  </button>
+                )}
                 <button 
                   onClick={() => setShowLogoutConfirm(true)}
                   className="flex items-center gap-2 px-6 py-2.5 bg-slate-900 hover:bg-black text-white rounded-full text-xs font-black uppercase tracking-widest transition-all shadow-lg shadow-slate-200"
@@ -543,6 +615,14 @@ export default function App() {
                       >
                         <User size={18} /> My Profile
                       </button>
+                      {isAdmin && (
+                        <button 
+                          onClick={() => { setIsAdminPortalOpen(true); setIsMenuOpen(false); }}
+                          className="w-full flex items-center gap-4 px-5 py-4 rounded-2xl text-xs font-black uppercase tracking-widest transition-all bg-emerald-50 text-emerald-600 border border-emerald-100"
+                        >
+                          <LayoutDashboard size={18} /> Admin Panel
+                        </button>
+                      )}
                     </div>
                   </div>
                 </div>
@@ -590,7 +670,42 @@ export default function App() {
                 </p>
               </div>
               
-              <ProfileForm onSubmit={handleProfileSubmit} isLoading={isLoading} />
+              {profile ? (
+                <div className="bg-white p-8 rounded-[2rem] shadow-xl shadow-slate-200/50 border border-slate-50 text-center max-w-xl mx-auto">
+                  <div className="w-20 h-20 bg-indigo-50 text-indigo-600 rounded-3xl flex items-center justify-center mx-auto mb-6">
+                    <User size={40} />
+                  </div>
+                  <h3 className="text-2xl font-black text-slate-900 mb-2">Welcome back, {profile.fullName.split(' ')[0]}!</h3>
+                  <p className="text-slate-500 font-medium mb-8">Your profile is saved and ready. We can find the latest scholarships matching your details.</p>
+                  
+                  <div className="flex flex-col sm:flex-row gap-4 justify-center">
+                    <button 
+                      onClick={() => setView('Profile')}
+                      className="px-8 py-4 bg-slate-100 text-slate-900 rounded-2xl text-sm font-black uppercase tracking-widest hover:bg-slate-200 transition-all"
+                    >
+                      Edit Profile
+                    </button>
+                    <button 
+                      onClick={() => handleProfileSubmit(profile)}
+                      disabled={isLoading}
+                      className="px-8 py-4 bg-indigo-600 text-white rounded-2xl text-sm font-black uppercase tracking-widest shadow-xl shadow-indigo-100 hover:bg-indigo-700 transition-all flex items-center justify-center gap-2 disabled:opacity-50"
+                    >
+                      {isLoading ? (
+                        <>
+                          <div className="w-5 h-5 border-2 border-white/30 border-t-white rounded-full animate-spin" />
+                          Searching...
+                        </>
+                      ) : (
+                        <>
+                          <Sparkles size={18} /> Find Scholarships
+                        </>
+                      )}
+                    </button>
+                  </div>
+                </div>
+              ) : (
+                <ProfileForm onSubmit={handleProfileSubmit} onAutoSave={handleAutoSave} isLoading={isLoading} />
+              )}
               
               <div className="mt-20 grid grid-cols-1 md:grid-cols-3 gap-10 text-center">
                 <div className="p-6 group">
@@ -768,6 +883,7 @@ export default function App() {
                   onSave={handleSave}
                   onApply={handleApply}
                   onUpdateProfile={handleProfileSubmit}
+                  onAutoSave={handleAutoSave}
                   onUpdateStatus={handleUpdateApplicationStatus}
                   onUpdateNotes={handleUpdateApplicationNotes}
                   isLoading={isLoading}
@@ -891,6 +1007,7 @@ export default function App() {
                             <option value="Match">Sort: Match</option>
                             <option value="AmountDesc">Sort: Amount</option>
                             <option value="DeadlineAsc">Sort: Deadline</option>
+                            <option value="ProviderAsc">Sort: Provider (A-Z)</option>
                           </select>
                         </div>
 
@@ -970,6 +1087,20 @@ export default function App() {
 
                         {/* New Filters */}
                         <div className="space-y-2">
+                          <label className="text-[10px] font-black uppercase tracking-widest text-slate-400 ml-1">Deadline</label>
+                          <select
+                            value={deadlineFilter}
+                            onChange={(e) => setDeadlineFilter(e.target.value)}
+                            className="w-full px-4 py-3 bg-slate-50 border border-slate-100 rounded-xl focus:outline-none focus:ring-2 focus:ring-indigo-500/20 text-xs font-medium"
+                          >
+                            <option value="All">Any Deadline</option>
+                            <option value="Closing Soon">Closing Soon (1 Month)</option>
+                            <option value="Next 3 Months">Next 3 Months</option>
+                            <option value="Next 6 Months">Next 6 Months</option>
+                            <option value="Rolling/Upcoming">Rolling / Upcoming</option>
+                          </select>
+                        </div>
+                        <div className="space-y-2">
                           <label className="text-[10px] font-black uppercase tracking-widest text-slate-400 ml-1">Amount Range</label>
                           <select
                             value={amountFilter}
@@ -1018,6 +1149,7 @@ export default function App() {
                             setLocationFilter('All');
                             setTypeFilter('All');
                             setAmountFilter('All');
+                            setDeadlineFilter('All');
                             setProviderFilter('All');
                             setCommunityFilter('All');
                           }}

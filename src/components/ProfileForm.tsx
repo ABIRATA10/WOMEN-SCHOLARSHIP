@@ -7,9 +7,10 @@ interface ProfileFormProps {
   onSubmit: (profile: UserProfile) => void;
   isLoading: boolean;
   initialData?: UserProfile | null;
+  onAutoSave?: (profile: UserProfile) => void;
 }
 
-export const ProfileForm: React.FC<ProfileFormProps> = ({ onSubmit, isLoading, initialData }) => {
+export const ProfileForm: React.FC<ProfileFormProps> = ({ onSubmit, isLoading, initialData, onAutoSave }) => {
   const [formData, setFormData] = React.useState<UserProfile>(initialData || {
     fullName: '',
     phoneNumber: '',
@@ -37,6 +38,7 @@ export const ProfileForm: React.FC<ProfileFormProps> = ({ onSubmit, isLoading, i
 
   const [isFetchingAddress, setIsFetchingAddress] = React.useState(false);
   const [lookupError, setLookupError] = React.useState<string | null>(null);
+  const [saveStatus, setSaveStatus] = React.useState<'idle' | 'saving' | 'saved'>('idle');
 
   const getCurrencySymbol = (country: string) => {
     const c = country.toLowerCase().trim();
@@ -99,6 +101,20 @@ export const ProfileForm: React.FC<ProfileFormProps> = ({ onSubmit, isLoading, i
     return () => clearTimeout(timer);
   }, [formData.pincode, formData.country]);
 
+  // Auto-save logic
+  React.useEffect(() => {
+    if (!onAutoSave) return;
+    
+    setSaveStatus('saving');
+    const timer = setTimeout(() => {
+      onAutoSave(formData);
+      setSaveStatus('saved');
+      setTimeout(() => setSaveStatus('idle'), 2000);
+    }, 1000); // Debounce save by 1 second
+
+    return () => clearTimeout(timer);
+  }, [formData, onAutoSave]);
+
   const handleChange = (e: React.ChangeEvent<HTMLInputElement | HTMLSelectElement | HTMLTextAreaElement>) => {
     const { name, value } = e.target;
     setFormData((prev) => ({ ...prev, [name]: name === 'age' ? parseInt(value) : value }));
@@ -122,8 +138,10 @@ export const ProfileForm: React.FC<ProfileFormProps> = ({ onSubmit, isLoading, i
             <div className={`p-1.5 rounded-lg ${completionPercentage === 100 ? 'bg-emerald-100 text-emerald-600' : 'bg-indigo-100 text-indigo-600'}`}>
               {completionPercentage === 100 ? <CheckCircle2 size={16} /> : <Sparkles size={16} />}
             </div>
-            <span className="text-sm font-black text-slate-900 uppercase tracking-tight">
+            <span className="text-sm font-black text-slate-900 uppercase tracking-tight flex items-center gap-2">
               Profile Completion
+              {saveStatus === 'saving' && <span className="text-xs text-slate-400 font-medium normal-case">Saving...</span>}
+              {saveStatus === 'saved' && <span className="text-xs text-emerald-500 font-medium normal-case flex items-center gap-1"><CheckCircle2 size={12} /> Saved</span>}
             </span>
           </div>
           <span className={`text-sm font-black ${completionPercentage === 100 ? 'text-emerald-600' : 'text-indigo-600'}`}>

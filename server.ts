@@ -7,7 +7,7 @@ import path from "path";
 import bcrypt from "bcryptjs";
 import crypto from "crypto";
 import nodemailer from "nodemailer";
-import { validatePassword } from "./src/utils/passwordValidator";
+import { validatePassword } from "./src/utils/passwordValidator.js";
 
 dotenv.config();
 

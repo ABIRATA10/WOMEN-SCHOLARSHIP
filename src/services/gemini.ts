@@ -1,6 +1,6 @@
 import { GoogleGenAI, Type } from "@google/genai";
-import { UserProfile, Scholarship, MatchResult, ScholarshipMatch, Application } from "../types";
-import { LOCAL_SCHOLARSHIP_DATA } from "../constants/scholarshipData";
+import { UserProfile, Scholarship, MatchResult, ScholarshipMatch, Application } from "../types.js";
+import { LOCAL_SCHOLARSHIP_DATA } from "../constants/scholarshipData.js";
 
 const apiKey = process.env.GEMINI_API_KEY || "";
 if (!apiKey) {

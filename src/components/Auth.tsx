@@ -31,49 +31,6 @@ export const Auth: React.FC<AuthProps> = ({ onLogin }) => {
   const [showNewPassword, setShowNewPassword] = useState(false);
   const [showConfirmPassword, setShowConfirmPassword] = useState(false);
 
-  React.useEffect(() => {
-    const handleMessage = (event: MessageEvent) => {
-      // Validate origin is from AI Studio preview or localhost
-      const origin = event.origin;
-      if (!origin.endsWith('.run.app') && !origin.includes('localhost') && !origin.endsWith('.railway.app')) {
-        return;
-      }
-      if (event.data?.type === 'OAUTH_AUTH_SUCCESS') {
-        onLogin(event.data.user);
-      }
-    };
-    window.addEventListener('message', handleMessage);
-    return () => window.removeEventListener('message', handleMessage);
-  }, [onLogin]);
-
-  const handleGoogleSignIn = async () => {
-    setError('');
-    setLoading(true);
-    try {
-      const response = await fetch(`${API_URL}/api/auth/google/url`);
-      if (!response.ok) {
-        const data = await response.json();
-        throw new Error(data.error || 'Failed to get auth URL');
-      }
-      const { url } = await response.json();
-      
-      const width = 500;
-      const height = 600;
-      const left = window.screenX + (window.outerWidth - width) / 2;
-      const top = window.screenY + (window.outerHeight - height) / 2;
-      
-      window.open(
-        url,
-        'google_oauth',
-        `width=${width},height=${height},left=${left},top=${top}`
-      );
-    } catch (err: any) {
-      setError(err.message || 'Google Sign-in failed');
-    } finally {
-      setLoading(false);
-    }
-  };
-
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
     setError('');
@@ -81,7 +38,7 @@ export const Auth: React.FC<AuthProps> = ({ onLogin }) => {
 
     try {
       if (isVerifying) {
-        const response = await fetch(`${API_URL}/api/auth/signup`, {
+        const response = await fetch('/api/auth/signup', {
           method: 'POST',
           headers: { 'Content-Type': 'application/json' },
           body: JSON.stringify({ email, password, fullName, phoneNumber, code: verificationCode }),
@@ -100,7 +57,7 @@ export const Auth: React.FC<AuthProps> = ({ onLogin }) => {
           setError('Passwords do not match');
           return;
         }
-        const response = await fetch(`${API_URL}/api/auth/reset-password`, {
+        const response = await fetch('/api/auth/reset-password', {
           method: 'POST',
           headers: { 'Content-Type': 'application/json' },
           body: JSON.stringify({ email, code: verificationCode, newPassword }),
@@ -125,7 +82,7 @@ export const Auth: React.FC<AuthProps> = ({ onLogin }) => {
       }
 
       if (isForgotPassword) {
-        const response = await fetch(`${API_URL}/api/auth/forgot-password`, {
+        const response = await fetch('/api/auth/forgot-password', {
           method: 'POST',
           headers: { 'Content-Type': 'application/json' },
           body: JSON.stringify({ email }),
@@ -142,7 +99,7 @@ export const Auth: React.FC<AuthProps> = ({ onLogin }) => {
       }
 
       if (isLogin) {
-        const response = await fetch(`${API_URL}/api/auth/login`, {
+        const response = await fetch('/api/auth/login', {
           method: 'POST',
           headers: { 'Content-Type': 'application/json' },
           body: JSON.stringify({ email, password }),
@@ -155,7 +112,7 @@ export const Auth: React.FC<AuthProps> = ({ onLogin }) => {
         }
       } else {
         // Signup flow - first verify email
-        const response = await fetch(`${API_URL}/api/auth/send-verification`, {
+        const response = await fetch('/api/auth/send-verification', {
           method: 'POST',
           headers: { 'Content-Type': 'application/json' },
           body: JSON.stringify({ email }),
@@ -176,7 +133,7 @@ export const Auth: React.FC<AuthProps> = ({ onLogin }) => {
     }
   };
 
-  const inputClasses = "w-full pl-12 pr-4 py-4 bg-slate-50 border border-slate-100 rounded-2xl focus:outline-none focus:ring-2 focus:ring-blue-500/20 focus:border-blue-400 transition-all placeholder:text-slate-300 text-slate-800 font-medium";
+  const inputClasses = "w-full pl-12 pr-4 py-4 bg-slate-50 border border-slate-100 rounded-2xl focus:outline-none focus:ring-2 focus:ring-indigo-500/20 focus:border-indigo-400 transition-all placeholder:text-slate-300 text-slate-800 font-medium";
   const labelClasses = "text-[10px] font-black uppercase tracking-widest text-slate-400 mb-1.5 block ml-1";
 
   return (
@@ -193,13 +150,13 @@ export const Auth: React.FC<AuthProps> = ({ onLogin }) => {
         </select>
       </div>
       {/* Decorative Background */}
-      <div className="absolute top-[-10%] left-[-10%] w-[40%] h-[40%] bg-blue-200/20 rounded-full blur-[120px] animate-pulse" />
+      <div className="absolute top-[-10%] left-[-10%] w-[40%] h-[40%] bg-indigo-200/20 rounded-full blur-[120px] animate-pulse" />
       <div className="absolute bottom-[-10%] right-[-10%] w-[40%] h-[40%] bg-rose-200/20 rounded-full blur-[120px] animate-pulse" style={{ animationDelay: '2s' }} />
 
       <motion.div 
         initial={{ opacity: 0, y: 20, scale: 0.95 }}
         animate={{ opacity: 1, y: 0, scale: 1 }}
-        className="w-full max-w-[480px] bg-white/90 backdrop-blur-2xl rounded-[3rem] p-10 shadow-2xl shadow-blue-100/50 border border-white relative z-10"
+        className="w-full max-w-[480px] bg-white/90 backdrop-blur-2xl rounded-[3rem] p-10 shadow-2xl shadow-indigo-100/50 border border-white relative z-10"
       >
         <div className="flex justify-center mb-8">
           <Logo size={64} showText={true} />
@@ -221,22 +178,17 @@ export const Auth: React.FC<AuthProps> = ({ onLogin }) => {
           </p>
         </div>
 
-        {!isVerifying && !isResetVerifying && !isResetMode && (
-          <div className="mb-8 space-y-4">
-          </div>
-        )}
-
         {isVerifying || isResetVerifying ? (
           <motion.div 
             initial={{ opacity: 0, y: 10 }}
             animate={{ opacity: 1, y: 0 }}
             className="space-y-8"
           >
-            <div className="bg-blue-50 p-6 rounded-[2rem] border border-blue-100 text-center">
-              <p className="text-xs text-blue-600 font-black uppercase tracking-widest mb-2">
+            <div className="bg-indigo-50 p-6 rounded-[2rem] border border-indigo-100 text-center">
+              <p className="text-xs text-indigo-600 font-black uppercase tracking-widest mb-2">
                 {isResetVerifying ? 'Reset Code' : 'Demo OTP (Phone & Email)'}
               </p>
-              <p className="text-4xl font-black text-blue-600 tracking-[0.5em] ml-[0.5em]">{generatedCode}</p>
+              <p className="text-4xl font-black text-indigo-600 tracking-[0.5em] ml-[0.5em]">{generatedCode}</p>
             </div>
             
             <form onSubmit={handleSubmit} className="space-y-6">
@@ -266,7 +218,7 @@ export const Auth: React.FC<AuthProps> = ({ onLogin }) => {
               <button
                 type="submit"
                 disabled={loading}
-                className="w-full py-5 bg-blue-600 hover:bg-blue-700 text-white font-black rounded-2xl transition-all shadow-xl shadow-blue-100 flex items-center justify-center gap-3 text-sm uppercase tracking-widest group disabled:opacity-50"
+                className="w-full py-5 bg-indigo-600 hover:bg-indigo-700 text-white font-black rounded-2xl transition-all shadow-xl shadow-indigo-100 flex items-center justify-center gap-3 text-sm uppercase tracking-widest group disabled:opacity-50"
               >
                 {loading ? 'Verifying...' : isResetVerifying ? 'Verify Code' : 'Verify & Create Account'}
                 <ArrowRight size={18} className="group-hover:translate-x-1 transition-transform" />
@@ -298,7 +250,7 @@ export const Auth: React.FC<AuthProps> = ({ onLogin }) => {
                   <div className="space-y-1">
                     <label className={labelClasses}>{t('auth.name')}</label>
                     <div className="relative group">
-                      <UserIcon className="absolute left-4 top-1/2 -translate-y-1/2 text-slate-300 group-focus-within:text-blue-500 transition-colors" size={20} />
+                      <UserIcon className="absolute left-4 top-1/2 -translate-y-1/2 text-slate-300 group-focus-within:text-indigo-500 transition-colors" size={20} />
                       <input
                         required
                         type="text"
@@ -313,7 +265,7 @@ export const Auth: React.FC<AuthProps> = ({ onLogin }) => {
                   <div className="space-y-1">
                     <label className={labelClasses}>{t('auth.phone')}</label>
                     <div className="relative group">
-                      <Phone className="absolute left-4 top-1/2 -translate-y-1/2 text-slate-300 group-focus-within:text-blue-500 transition-colors" size={20} />
+                      <Phone className="absolute left-4 top-1/2 -translate-y-1/2 text-slate-300 group-focus-within:text-indigo-500 transition-colors" size={20} />
                       <input
                         required
                         type="tel"
@@ -332,7 +284,7 @@ export const Auth: React.FC<AuthProps> = ({ onLogin }) => {
               <div className="space-y-1">
                 <label className={labelClasses}>{t('auth.email')}</label>
                 <div className="relative group">
-                  <Mail className="absolute left-4 top-1/2 -translate-y-1/2 text-slate-300 group-focus-within:text-blue-500 transition-colors" size={20} />
+                  <Mail className="absolute left-4 top-1/2 -translate-y-1/2 text-slate-300 group-focus-within:text-indigo-500 transition-colors" size={20} />
                   <input
                     required
                     type="email"
@@ -351,7 +303,7 @@ export const Auth: React.FC<AuthProps> = ({ onLogin }) => {
                 <div className="space-y-1">
                   <label className={labelClasses}>New Password</label>
                   <div className="relative group">
-                    <Lock className="absolute left-4 top-1/2 -translate-y-1/2 text-slate-300 group-focus-within:text-blue-500 transition-colors" size={20} />
+                    <Lock className="absolute left-4 top-1/2 -translate-y-1/2 text-slate-300 group-focus-within:text-indigo-500 transition-colors" size={20} />
                     <input
                       required
                       type={showNewPassword ? "text" : "password"}
@@ -368,7 +320,7 @@ export const Auth: React.FC<AuthProps> = ({ onLogin }) => {
                       onTouchStart={() => setShowNewPassword(true)}
                       onTouchEnd={() => setShowNewPassword(false)}
                       onTouchCancel={() => setShowNewPassword(false)}
-                      className="absolute right-4 top-1/2 -translate-y-1/2 text-slate-400 hover:text-blue-500 transition-colors"
+                      className="absolute right-4 top-1/2 -translate-y-1/2 text-slate-400 hover:text-indigo-500 transition-colors"
                     >
                       {showNewPassword ? <EyeOff size={20} /> : <Eye size={20} />}
                     </button>
@@ -377,7 +329,7 @@ export const Auth: React.FC<AuthProps> = ({ onLogin }) => {
                 <div className="space-y-1">
                   <label className={labelClasses}>Confirm New Password</label>
                   <div className="relative group">
-                    <Lock className="absolute left-4 top-1/2 -translate-y-1/2 text-slate-300 group-focus-within:text-blue-500 transition-colors" size={20} />
+                    <Lock className="absolute left-4 top-1/2 -translate-y-1/2 text-slate-300 group-focus-within:text-indigo-500 transition-colors" size={20} />
                     <input
                       required
                       type={showConfirmPassword ? "text" : "password"}
@@ -394,7 +346,7 @@ export const Auth: React.FC<AuthProps> = ({ onLogin }) => {
                       onTouchStart={() => setShowConfirmPassword(true)}
                       onTouchEnd={() => setShowConfirmPassword(false)}
                       onTouchCancel={() => setShowConfirmPassword(false)}
-                      className="absolute right-4 top-1/2 -translate-y-1/2 text-slate-400 hover:text-blue-500 transition-colors"
+                      className="absolute right-4 top-1/2 -translate-y-1/2 text-slate-400 hover:text-indigo-500 transition-colors"
                     >
                       {showConfirmPassword ? <EyeOff size={20} /> : <Eye size={20} />}
                     </button>
@@ -411,14 +363,14 @@ export const Auth: React.FC<AuthProps> = ({ onLogin }) => {
                     <button
                       type="button"
                       onClick={() => setIsForgotPassword(true)}
-                      className="text-[10px] font-black text-blue-600 hover:text-blue-800 uppercase tracking-widest mb-1.5"
+                      className="text-[10px] font-black text-indigo-600 hover:text-indigo-800 uppercase tracking-widest mb-1.5"
                     >
                       Forgot?
                     </button>
                   )}
                 </div>
                 <div className="relative group">
-                  <Lock className="absolute left-4 top-1/2 -translate-y-1/2 text-slate-300 group-focus-within:text-blue-500 transition-colors" size={20} />
+                  <Lock className="absolute left-4 top-1/2 -translate-y-1/2 text-slate-300 group-focus-within:text-indigo-500 transition-colors" size={20} />
                   <input
                     required
                     type={showPassword ? "text" : "password"}
@@ -435,7 +387,7 @@ export const Auth: React.FC<AuthProps> = ({ onLogin }) => {
                     onTouchStart={() => setShowPassword(true)}
                     onTouchEnd={() => setShowPassword(false)}
                     onTouchCancel={() => setShowPassword(false)}
-                    className="absolute right-4 top-1/2 -translate-y-1/2 text-slate-400 hover:text-blue-500 transition-colors"
+                    className="absolute right-4 top-1/2 -translate-y-1/2 text-slate-400 hover:text-indigo-500 transition-colors"
                   >
                     {showPassword ? <EyeOff size={20} /> : <Eye size={20} />}
                   </button>
@@ -456,7 +408,7 @@ export const Auth: React.FC<AuthProps> = ({ onLogin }) => {
             <button
               type="submit"
               disabled={loading}
-              className="w-full py-5 bg-blue-600 hover:bg-blue-700 text-white font-black rounded-2xl transition-all shadow-xl shadow-blue-100 flex items-center justify-center gap-3 text-sm uppercase tracking-widest group disabled:opacity-50"
+              className="w-full py-5 bg-indigo-600 hover:bg-indigo-700 text-white font-black rounded-2xl transition-all shadow-xl shadow-indigo-100 flex items-center justify-center gap-3 text-sm uppercase tracking-widest group disabled:opacity-50"
             >
               {loading ? 'Processing...' : isResetMode ? 'Reset Password' : isForgotPassword ? 'Send Reset Code' : isLogin ? t('auth.signin') : t('auth.create')}
               <ArrowRight size={18} className="group-hover:translate-x-1 transition-transform" />
@@ -488,7 +440,7 @@ export const Auth: React.FC<AuthProps> = ({ onLogin }) => {
                 setIsResetVerifying(false);
                 setIsResetMode(false);
               }}
-              className="ml-2 text-blue-600 font-black hover:text-blue-800 transition-colors uppercase tracking-widest text-[10px]"
+              className="ml-2 text-indigo-600 font-black hover:text-indigo-800 transition-colors uppercase tracking-widest text-[10px]"
             >
               {isLogin ? t('auth.signup') : t('auth.signin')}
             </button>

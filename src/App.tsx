@@ -7,12 +7,15 @@ import { ApplicationAssistant } from './components/ApplicationAssistant';
 import { Dashboard } from './components/Dashboard';
 import { SupportChatbot } from './components/SupportChatbot';
 import { NotificationManager } from './components/NotificationManager';
+import { AdminPortal } from './components/AdminPortal';
 import { UserProfile, Scholarship, MatchResult, User as UserType, ScholarshipMatch, Application, ApplicationStatus, Reminder } from './types';
 import { findScholarships } from './services/gemini';
 import { Sparkles, GraduationCap, Filter, Search, ArrowLeft, Globe, MapPin, User, LogOut, LayoutDashboard, BookmarkCheck, Heart, Bot, AlertTriangle, Clock, RefreshCw, History, Bell, Menu, X } from 'lucide-react';
 import { motion, AnimatePresence } from 'motion/react';
 import { Logo } from './components/Logo';
 import { useLanguage } from './contexts/LanguageContext';
+
+const API_URL = import.meta.env.VITE_API_URL || '';
 
 export default function App() {
   const [currentUser, setCurrentUser] = React.useState<UserType | null>(() => {
@@ -38,14 +41,17 @@ export default function App() {
   const [showAdvancedFilters, setShowAdvancedFilters] = React.useState(false);
   const [communityOnly, setCommunityOnly] = React.useState(false);
   const [amountFilter, setAmountFilter] = React.useState<string>('All');
+  const [deadlineFilter, setDeadlineFilter] = React.useState<string>('All');
   const [providerFilter, setProviderFilter] = React.useState<string>('All');
   const [communityFilter, setCommunityFilter] = React.useState<string>('All');
+  const [fullyFundedOnly, setFullyFundedOnly] = React.useState<boolean>(false);
+  const [genderSpecificOnly, setGenderSpecificOnly] = React.useState<boolean>(false);
   const [searchQuery, setSearchQuery] = React.useState('');
   const [view, setView] = React.useState<'Landing' | 'Results' | 'Profile' | 'Dashboard' | 'Applications' | 'Saved'>(() => {
     const saved = localStorage.getItem('scholar_profile');
     return saved ? 'Results' : 'Landing';
   });
-  const [sortBy, setSortBy] = React.useState<'Match' | 'DeadlineAsc' | 'DeadlineDesc' | 'AmountDesc'>('Match');
+  const [sortBy, setSortBy] = React.useState<'Match' | 'DeadlineAsc' | 'DeadlineDesc' | 'AmountDesc' | 'ProviderAsc'>('Match');
   const [applications, setApplications] = React.useState<Application[]>(() => {
     const saved = localStorage.getItem('scholar_applications');
     if (saved) return JSON.parse(saved);
@@ -82,8 +88,11 @@ export default function App() {
   const [isAssistantOpen, setIsAssistantOpen] = React.useState(false);
   const [showLogoutConfirm, setShowLogoutConfirm] = React.useState(false);
   const [isMenuOpen, setIsMenuOpen] = React.useState(false);
+  const [isAdminPortalOpen, setIsAdminPortalOpen] = React.useState(false);
   const [reminders, setReminders] = React.useState<Reminder[]>([]);
   const { language, setLanguage, t } = useLanguage();
+
+  const isAdmin = currentUser?.email && import.meta.env.VITE_ADMIN_EMAILS?.split(',').map((e: string) => e.trim()).includes(currentUser.email);
 
   // Persist data
   React.useEffect(() => {
@@ -126,13 +135,33 @@ export default function App() {
     localStorage.setItem('scholar_search_history', JSON.stringify(searchHistory));
   }, [searchHistory]);
 
-  // Fetch reminders
+  // Fetch reminders and profile
   React.useEffect(() => {
     if (currentUser) {
-      fetch(`/api/reminders/${currentUser.id}`)
+      fetch(`${API_URL}/api/reminders/${currentUser.id}`)
         .then(res => res.json())
-        .then(data => setReminders(data))
-        .catch(err => console.error("Failed to fetch reminders", err));
+        .then(data => {
+          if (Array.isArray(data)) {
+            setReminders(data);
+          } else {
+            console.error("Invalid reminders data:", data);
+            setReminders([]);
+          }
+        })
+        .catch(err => {
+          console.error("Failed to fetch reminders", err);
+          setReminders([]);
+        });
+
+      fetch(`${API_URL}/api/profile/${currentUser.id}`)
+        .then(res => {
+          if (res.ok) return res.json();
+          throw new Error('Profile not found');
+        })
+        .then(data => {
+          if (data) setProfile(data);
+        })
+        .catch(err => console.error("Failed to fetch profile", err));
     }
   }, [currentUser]);
 
@@ -152,7 +181,7 @@ export default function App() {
           }));
 
           // Mark as triggered in DB
-          fetch(`/api/reminders/${reminder.id}/trigger`, { method: 'POST' })
+          fetch(`${API_URL}/api/reminders/${reminder.id}/trigger`, { method: 'POST' })
             .catch(err => console.error("Failed to trigger reminder", err));
 
           // Update local state
@@ -182,6 +211,13 @@ export default function App() {
     setProfile(newProfile);
     setView('Results');
     try {
+      if (currentUser) {
+        await fetch(`${API_URL}/api/profile/${currentUser.id}`, {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify(newProfile)
+        });
+      }
       const searchResults = await findScholarships(newProfile);
       setResults(searchResults);
     } catch (err: any) {
@@ -189,6 +225,21 @@ export default function App() {
       setResults([]);
     } finally {
       setIsLoading(false);
+    }
+  };
+
+  const handleAutoSave = async (newProfile: UserProfile) => {
+    setProfile(newProfile);
+    if (currentUser) {
+      try {
+        await fetch(`${API_URL}/api/profile/${currentUser.id}`, {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify(newProfile)
+        });
+      } catch (err) {
+        console.error("Failed to auto-save profile:", err);
+      }
     }
   };
 
@@ -220,6 +271,9 @@ export default function App() {
     const matchesProvider = providerFilter === 'All' || s.provider.toLowerCase().includes(providerFilter.toLowerCase());
     const matchesCommunity = communityFilter === 'All' || (s.targetCommunity && s.targetCommunity.toLowerCase().includes(communityFilter.toLowerCase()));
     
+    const matchesFullyFunded = !fullyFundedOnly || s.fullyFunded === true;
+    const matchesGenderSpecific = !genderSpecificOnly || (s.genderSpecific && s.genderSpecific.toLowerCase() !== 'any' && s.genderSpecific.toLowerCase() !== 'all');
+
     let matchesAmount = true;
     if (amountFilter !== 'All') {
       const amount = parseAmount(m.localCurrencyAmount || s.amount);
@@ -227,6 +281,20 @@ export default function App() {
       else if (amountFilter === '1000-5000') matchesAmount = amount > 1000 && amount <= 5000;
       else if (amountFilter === '5000-10000') matchesAmount = amount > 5000 && amount <= 10000;
       else if (amountFilter === '10000+') matchesAmount = amount > 10000;
+    }
+
+    let matchesDeadline = true;
+    if (deadlineFilter !== 'All') {
+      const deadline = parseDeadline(s.deadline);
+      const now = Date.now();
+      const oneMonth = 30 * 24 * 60 * 60 * 1000;
+      const threeMonths = 90 * 24 * 60 * 60 * 1000;
+      const sixMonths = 180 * 24 * 60 * 60 * 1000;
+      
+      if (deadlineFilter === 'Closing Soon') matchesDeadline = deadline > now && deadline <= now + oneMonth;
+      else if (deadlineFilter === 'Next 3 Months') matchesDeadline = deadline > now && deadline <= now + threeMonths;
+      else if (deadlineFilter === 'Next 6 Months') matchesDeadline = deadline > now && deadline <= now + sixMonths;
+      else if (deadlineFilter === 'Rolling/Upcoming') matchesDeadline = s.deadline.toLowerCase().includes('rolling') || s.deadline.toLowerCase().includes('upcoming');
     }
 
     const matchesSearch = s.title.toLowerCase().includes(searchQuery.toLowerCase()) || 
@@ -237,7 +305,8 @@ export default function App() {
     
     return matchesFilter && matchesScope && matchesMajor && matchesGpa && matchesLocation && 
            matchesType && matchesCommunityOnly && matchesSearch && matchesProvider && 
-           matchesCommunity && matchesAmount;
+           matchesCommunity && matchesAmount && matchesDeadline && 
+           matchesFullyFunded && matchesGenderSpecific;
   }).sort((a, b) => {
     // Primary sort: Scope (State > National > Global)
     const scopePriority = { 'State': 1, 'National': 2, 'Global': 3 };
@@ -259,7 +328,10 @@ export default function App() {
     }
     const dateA = parseDeadline(a.scholarship.deadline);
     const dateB = parseDeadline(b.scholarship.deadline);
-    return sortBy === 'DeadlineAsc' ? dateA - dateB : dateB - dateA;
+    if (sortBy === 'DeadlineAsc') return dateA - dateB;
+    if (sortBy === 'DeadlineDesc') return dateB - dateA;
+    if (sortBy === 'ProviderAsc') return a.scholarship.provider.localeCompare(b.scholarship.provider);
+    return 0;
   });
 
   const handleApply = (id: string) => {
@@ -310,7 +382,7 @@ export default function App() {
     if (!currentUser) return;
     
     try {
-      const response = await fetch('/api/reminders', {
+      const response = await fetch(`${API_URL}/api/reminders`, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
@@ -353,11 +425,21 @@ export default function App() {
     return <Auth onLogin={setCurrentUser} />;
   }
 
+  if (isAdminPortalOpen) {
+    return (
+      <AdminPortal 
+        currentUser={currentUser} 
+        onLogout={handleLogout} 
+        onClose={() => setIsAdminPortalOpen(false)} 
+      />
+    );
+  }
+
   return (
-    <div className="min-h-screen bg-[#F8FAFC] font-sans text-slate-900 selection:bg-indigo-100 selection:text-indigo-900">
+    <div className="min-h-screen bg-[#F8FAFC] font-sans text-slate-900 selection:bg-blue-100 selection:text-blue-900">
       {/* Dynamic Background */}
       <div className="fixed inset-0 pointer-events-none overflow-hidden">
-        <div className="absolute top-[-10%] left-[-10%] w-[40%] h-[40%] bg-indigo-200/20 rounded-full blur-[120px] animate-pulse" />
+        <div className="absolute top-[-10%] left-[-10%] w-[40%] h-[40%] bg-blue-200/20 rounded-full blur-[120px] animate-pulse" />
         <div className="absolute bottom-[-10%] right-[-10%] w-[40%] h-[40%] bg-rose-200/20 rounded-full blur-[120px] animate-pulse" style={{ animationDelay: '2s' }} />
         <div className="absolute top-[40%] right-[10%] w-[30%] h-[30%] bg-amber-200/20 rounded-full blur-[120px] animate-pulse" style={{ animationDelay: '4s' }} />
       </div>
@@ -370,10 +452,10 @@ export default function App() {
             setResults([]); 
             setView('Landing'); 
           }}>
-            <div className="w-10 h-10 bg-white rounded-xl flex items-center justify-center shadow-lg shadow-indigo-200 border border-slate-100 group-hover:scale-110 transition-transform">
+            <div className="w-10 h-10 bg-white rounded-xl flex items-center justify-center shadow-lg shadow-blue-200 border border-slate-100 group-hover:scale-110 transition-transform">
               <Logo size={24} />
             </div>
-            <span className="text-xl font-black tracking-tighter bg-clip-text text-transparent bg-gradient-to-r from-indigo-600 to-violet-600">
+            <span className="text-xl font-black tracking-tighter bg-clip-text text-transparent bg-gradient-to-r from-blue-600 to-violet-600">
               MeritUs
             </span>
           </div>
@@ -396,21 +478,21 @@ export default function App() {
                   onClick={() => setView(view === 'Dashboard' ? 'Results' : 'Dashboard')}
                   className={`flex items-center gap-2 px-6 py-2.5 rounded-full text-xs font-black uppercase tracking-widest transition-all shadow-lg ${
                     view === 'Dashboard' 
-                      ? 'bg-indigo-600 text-white shadow-indigo-200' 
+                      ? 'bg-blue-600 text-white shadow-blue-200' 
                       : 'bg-white text-slate-900 border border-slate-100 shadow-slate-200 hover:bg-slate-50'
                   }`}
                 >
-                  <LayoutDashboard size={14} /> {view === 'Dashboard' ? t('profile.back') : t('nav.dashboard')}
+                  <LayoutDashboard size={14} /> {view === 'Dashboard' ? 'Back to Results' : 'Dashboard'}
                 </button>
                 <button 
                   onClick={() => setView(view === 'Applications' ? 'Results' : 'Applications')}
                   className={`flex items-center gap-2 px-6 py-2.5 rounded-full text-xs font-black uppercase tracking-widest transition-all shadow-lg ${
                     view === 'Applications' 
-                      ? 'bg-indigo-600 text-white shadow-indigo-200' 
+                      ? 'bg-blue-600 text-white shadow-blue-200' 
                       : 'bg-white text-slate-900 border border-slate-100 shadow-slate-200 hover:bg-slate-50'
                   }`}
                 >
-                  <BookmarkCheck size={14} /> {view === 'Applications' ? t('profile.back') : t('nav.applications')}
+                  <BookmarkCheck size={14} /> {view === 'Applications' ? 'Back to Results' : 'My Applications'}
                 </button>
                 <button 
                   onClick={() => setView(view === 'Saved' ? 'Results' : 'Saved')}
@@ -420,23 +502,31 @@ export default function App() {
                       : 'bg-white text-slate-900 border border-slate-100 shadow-slate-200 hover:bg-slate-50'
                   }`}
                 >
-                  <Heart size={14} className={savedIds.length > 0 ? "fill-current" : ""} /> {view === 'Saved' ? t('profile.back') : t('nav.saved')}
+                  <Heart size={14} className={savedIds.length > 0 ? "fill-current" : ""} /> {view === 'Saved' ? 'Back to Results' : 'Saved'}
                 </button>
                 <button 
                   onClick={() => setView(view === 'Profile' ? 'Results' : 'Profile')}
                   className={`flex items-center gap-2 px-6 py-2.5 rounded-full text-xs font-black uppercase tracking-widest transition-all shadow-lg ${
                     view === 'Profile' 
-                      ? 'bg-indigo-600 text-white shadow-indigo-200' 
+                      ? 'bg-blue-600 text-white shadow-blue-200' 
                       : 'bg-white text-slate-900 border border-slate-100 shadow-slate-200 hover:bg-slate-50'
                   }`}
                 >
-                  <User size={14} /> {view === 'Profile' ? t('profile.back') : t('nav.profile')}
+                  <User size={14} /> {view === 'Profile' ? 'Back to Results' : 'My Profile'}
                 </button>
+                {isAdmin && (
+                  <button 
+                    onClick={() => setIsAdminPortalOpen(true)}
+                    className="flex items-center gap-2 px-6 py-2.5 bg-emerald-600 hover:bg-emerald-700 text-white rounded-full text-xs font-black uppercase tracking-widest transition-all shadow-lg shadow-emerald-200"
+                  >
+                    <LayoutDashboard size={14} /> Admin
+                  </button>
+                )}
                 <button 
                   onClick={() => setShowLogoutConfirm(true)}
                   className="flex items-center gap-2 px-6 py-2.5 bg-slate-900 hover:bg-black text-white rounded-full text-xs font-black uppercase tracking-widest transition-all shadow-lg shadow-slate-200"
                 >
-                  <LogOut size={14} /> {t('nav.logout')}
+                  <LogOut size={14} /> Logout
                 </button>
               </div>
 
@@ -466,53 +556,103 @@ export default function App() {
         {/* Mobile Menu Overlay */}
         <AnimatePresence>
           {isMenuOpen && (
-            <motion.div
-              initial={{ opacity: 0, height: 0 }}
-              animate={{ opacity: 1, height: 'auto' }}
-              exit={{ opacity: 0, height: 0 }}
-              className="lg:hidden bg-white border-b border-slate-100 overflow-hidden"
-            >
-              <div className="p-4 space-y-2">
-                <button 
-                  onClick={() => { setView(view === 'Dashboard' ? 'Results' : 'Dashboard'); setIsMenuOpen(false); }}
-                  className={`w-full flex items-center gap-3 px-6 py-4 rounded-2xl text-xs font-black uppercase tracking-widest transition-all ${
-                    view === 'Dashboard' ? 'bg-indigo-600 text-white' : 'bg-slate-50 text-slate-900'
-                  }`}
-                >
-                  <LayoutDashboard size={16} /> {view === 'Dashboard' ? t('profile.back') : t('nav.dashboard')}
-                </button>
-                <button 
-                  onClick={() => { setView(view === 'Applications' ? 'Results' : 'Applications'); setIsMenuOpen(false); }}
-                  className={`w-full flex items-center gap-3 px-6 py-4 rounded-2xl text-xs font-black uppercase tracking-widest transition-all ${
-                    view === 'Applications' ? 'bg-indigo-600 text-white' : 'bg-slate-50 text-slate-900'
-                  }`}
-                >
-                  <BookmarkCheck size={16} /> {view === 'Applications' ? t('profile.back') : t('nav.applications')}
-                </button>
-                <button 
-                  onClick={() => { setView(view === 'Saved' ? 'Results' : 'Saved'); setIsMenuOpen(false); }}
-                  className={`w-full flex items-center gap-3 px-6 py-4 rounded-2xl text-xs font-black uppercase tracking-widest transition-all ${
-                    view === 'Saved' ? 'bg-rose-600 text-white' : 'bg-slate-50 text-slate-900'
-                  }`}
-                >
-                  <Heart size={16} className={savedIds.length > 0 ? "fill-current" : ""} /> {view === 'Saved' ? t('profile.back') : t('nav.saved')}
-                </button>
-                <button 
-                  onClick={() => { setView(view === 'Profile' ? 'Results' : 'Profile'); setIsMenuOpen(false); }}
-                  className={`w-full flex items-center gap-3 px-6 py-4 rounded-2xl text-xs font-black uppercase tracking-widest transition-all ${
-                    view === 'Profile' ? 'bg-indigo-600 text-white' : 'bg-slate-50 text-slate-900'
-                  }`}
-                >
-                  <User size={16} /> {view === 'Profile' ? t('profile.back') : t('nav.profile')}
-                </button>
-                <button 
-                  onClick={() => { setShowLogoutConfirm(true); setIsMenuOpen(false); }}
-                  className="w-full flex items-center gap-3 px-6 py-4 bg-slate-900 text-white rounded-2xl text-xs font-black uppercase tracking-widest transition-all"
-                >
-                  <LogOut size={16} /> {t('nav.logout')}
-                </button>
-              </div>
-            </motion.div>
+            <>
+              <motion.div
+                initial={{ opacity: 0 }}
+                animate={{ opacity: 1 }}
+                exit={{ opacity: 0 }}
+                onClick={() => setIsMenuOpen(false)}
+                className="fixed inset-0 bg-slate-900/40 backdrop-blur-sm z-40 lg:hidden"
+              />
+              <motion.div
+                initial={{ x: '100%' }}
+                animate={{ x: 0 }}
+                exit={{ x: '100%' }}
+                transition={{ type: 'spring', damping: 25, stiffness: 200 }}
+                className="fixed top-0 right-0 bottom-0 w-[85vw] max-w-sm bg-white z-50 lg:hidden flex flex-col shadow-2xl border-l border-slate-100"
+              >
+                <div className="p-6 flex items-center justify-between border-b border-slate-100">
+                  <Logo size={32} showText={true} />
+                  <button 
+                    onClick={() => setIsMenuOpen(false)}
+                    className="p-2.5 bg-slate-50 text-slate-900 rounded-xl border border-slate-100 hover:bg-slate-100 transition-colors"
+                  >
+                    <X size={20} />
+                  </button>
+                </div>
+                
+                <div className="flex-1 overflow-y-auto p-6 space-y-6">
+                  <div>
+                    <p className="text-[10px] font-black uppercase tracking-widest text-slate-400 mb-3 ml-2">Navigation</p>
+                    <div className="space-y-2">
+                      <button 
+                        onClick={() => { setView('Results'); setIsMenuOpen(false); }}
+                        className={`w-full flex items-center gap-4 px-5 py-4 rounded-2xl text-xs font-black uppercase tracking-widest transition-all ${
+                          view === 'Results' ? 'bg-blue-50 text-blue-600 border border-blue-100' : 'bg-transparent text-slate-600 hover:bg-slate-50 border border-transparent'
+                        }`}
+                      >
+                        <Search size={18} /> Find Scholarships
+                      </button>
+                      <button 
+                        onClick={() => { setView('Dashboard'); setIsMenuOpen(false); }}
+                        className={`w-full flex items-center gap-4 px-5 py-4 rounded-2xl text-xs font-black uppercase tracking-widest transition-all ${
+                          view === 'Dashboard' ? 'bg-blue-50 text-blue-600 border border-blue-100' : 'bg-transparent text-slate-600 hover:bg-slate-50 border border-transparent'
+                        }`}
+                      >
+                        <LayoutDashboard size={18} /> Dashboard
+                      </button>
+                      <button 
+                        onClick={() => { setView('Applications'); setIsMenuOpen(false); }}
+                        className={`w-full flex items-center gap-4 px-5 py-4 rounded-2xl text-xs font-black uppercase tracking-widest transition-all ${
+                          view === 'Applications' ? 'bg-blue-50 text-blue-600 border border-blue-100' : 'bg-transparent text-slate-600 hover:bg-slate-50 border border-transparent'
+                        }`}
+                      >
+                        <BookmarkCheck size={18} /> My Applications
+                      </button>
+                      <button 
+                        onClick={() => { setView('Saved'); setIsMenuOpen(false); }}
+                        className={`w-full flex items-center gap-4 px-5 py-4 rounded-2xl text-xs font-black uppercase tracking-widest transition-all ${
+                          view === 'Saved' ? 'bg-rose-50 text-rose-600 border border-rose-100' : 'bg-transparent text-slate-600 hover:bg-slate-50 border border-transparent'
+                        }`}
+                      >
+                        <Heart size={18} className={savedIds.length > 0 ? "fill-current" : ""} /> Saved
+                      </button>
+                    </div>
+                  </div>
+
+                  <div>
+                    <p className="text-[10px] font-black uppercase tracking-widest text-slate-400 mb-3 ml-2">Account</p>
+                    <div className="space-y-2">
+                      <button 
+                        onClick={() => { setView('Profile'); setIsMenuOpen(false); }}
+                        className={`w-full flex items-center gap-4 px-5 py-4 rounded-2xl text-xs font-black uppercase tracking-widest transition-all ${
+                          view === 'Profile' ? 'bg-blue-50 text-blue-600 border border-blue-100' : 'bg-transparent text-slate-600 hover:bg-slate-50 border border-transparent'
+                        }`}
+                      >
+                        <User size={18} /> My Profile
+                      </button>
+                      {isAdmin && (
+                        <button 
+                          onClick={() => { setIsAdminPortalOpen(true); setIsMenuOpen(false); }}
+                          className="w-full flex items-center gap-4 px-5 py-4 rounded-2xl text-xs font-black uppercase tracking-widest transition-all bg-emerald-50 text-emerald-600 border border-emerald-100"
+                        >
+                          <LayoutDashboard size={18} /> Admin Panel
+                        </button>
+                      )}
+                    </div>
+                  </div>
+                </div>
+
+                <div className="p-6 border-t border-slate-100 bg-slate-50">
+                  <button 
+                    onClick={() => { setShowLogoutConfirm(true); setIsMenuOpen(false); }}
+                    className="w-full flex items-center justify-center gap-3 px-6 py-4 bg-white border border-slate-200 text-slate-900 rounded-2xl text-xs font-black uppercase tracking-widest hover:bg-slate-100 transition-all shadow-sm"
+                  >
+                    <LogOut size={16} /> Logout
+                  </button>
+                </div>
+              </motion.div>
+            </>
           )}
         </AnimatePresence>
       </nav>
@@ -532,25 +672,60 @@ export default function App() {
                   initial={{ scale: 0.9, opacity: 0 }}
                   animate={{ scale: 1, opacity: 1 }}
                   transition={{ delay: 0.2 }}
-                  className="inline-flex items-center gap-2 px-4 py-2 bg-indigo-50 text-indigo-600 rounded-full text-[10px] font-black uppercase tracking-widest border border-indigo-100 mb-4"
+                  className="inline-flex items-center gap-2 px-4 py-2 bg-blue-50 text-blue-600 rounded-full text-[10px] font-black uppercase tracking-widest border border-blue-100 mb-4"
                 >
                   <Globe size={12} /> {t('landing.badge')}
                 </motion.div>
                 <h1 className="text-5xl sm:text-6xl md:text-8xl font-black text-slate-900 tracking-tight leading-[0.9]">
                   {t('landing.title1')} <br/>
-                  <span className="bg-clip-text text-transparent bg-gradient-to-r from-indigo-600 via-violet-600 to-rose-600">{t('landing.title2')}</span>
+                  <span className="bg-clip-text text-transparent bg-gradient-to-r from-blue-600 via-violet-600 to-rose-600">{t('landing.title2')}</span>
                 </h1>
                 <p className="text-lg text-slate-500 leading-relaxed font-medium max-w-2xl mx-auto">
                   {t('landing.desc1')} 
-                  <span className="block text-indigo-600 font-bold mt-2">{t('landing.desc2')}</span>
+                  <span className="block text-blue-600 font-bold mt-2">{t('landing.desc2')}</span>
                 </p>
               </div>
               
-              <ProfileForm onSubmit={handleProfileSubmit} isLoading={isLoading} />
+              {profile ? (
+                <div className="bg-white p-8 rounded-[2rem] shadow-xl shadow-slate-200/50 border border-slate-50 text-center max-w-xl mx-auto">
+                  <div className="w-20 h-20 bg-blue-50 text-blue-600 rounded-3xl flex items-center justify-center mx-auto mb-6">
+                    <User size={40} />
+                  </div>
+                  <h3 className="text-2xl font-black text-slate-900 mb-2">Welcome back, {profile.fullName.split(' ')[0]}!</h3>
+                  <p className="text-slate-500 font-medium mb-8">Your profile is saved and ready. We can find the latest scholarships matching your details.</p>
+                  
+                  <div className="flex flex-col sm:flex-row gap-4 justify-center">
+                    <button 
+                      onClick={() => setView('Profile')}
+                      className="px-8 py-4 bg-slate-100 text-slate-900 rounded-2xl text-sm font-black uppercase tracking-widest hover:bg-slate-200 transition-all"
+                    >
+                      Edit Profile
+                    </button>
+                    <button 
+                      onClick={() => handleProfileSubmit(profile)}
+                      disabled={isLoading}
+                      className="px-8 py-4 bg-blue-600 text-white rounded-2xl text-sm font-black uppercase tracking-widest shadow-xl shadow-blue-100 hover:bg-blue-700 transition-all flex items-center justify-center gap-2 disabled:opacity-50"
+                    >
+                      {isLoading ? (
+                        <>
+                          <div className="w-5 h-5 border-2 border-white/30 border-t-white rounded-full animate-spin" />
+                          Searching...
+                        </>
+                      ) : (
+                        <>
+                          <Sparkles size={18} /> Find Scholarships
+                        </>
+                      )}
+                    </button>
+                  </div>
+                </div>
+              ) : (
+                <ProfileForm onSubmit={handleProfileSubmit} onAutoSave={handleAutoSave} isLoading={isLoading} />
+              )}
               
               <div className="mt-20 grid grid-cols-1 md:grid-cols-3 gap-10 text-center">
                 <div className="p-6 group">
-                  <div className="w-14 h-14 bg-indigo-50 text-indigo-600 rounded-2xl flex items-center justify-center mx-auto mb-6 transition-transform group-hover:scale-110 group-hover:rotate-3">
+                  <div className="w-14 h-14 bg-blue-50 text-blue-600 rounded-2xl flex items-center justify-center mx-auto mb-6 transition-transform group-hover:scale-110 group-hover:rotate-3">
                     <Globe size={28} />
                   </div>
                   <h3 className="font-black text-slate-900 mb-2">{t('landing.f1.title')}</h3>
@@ -580,8 +755,8 @@ export default function App() {
               exit={{ opacity: 0, x: -20 }}
             >
               <div className="mb-12">
-                <h2 className="text-4xl font-black text-slate-900 tracking-tight mb-2">{t('dashboard.title')}</h2>
-                <p className="text-slate-500 font-medium">{t('dashboard.subtitle')}</p>
+                <h2 className="text-4xl font-black text-slate-900 tracking-tight mb-2">Interest Dashboard</h2>
+                <p className="text-slate-500 font-medium">Visualizing your scholarship journey and AI-detected interests.</p>
               </div>
               <Dashboard 
                 results={filteredResults} 
@@ -606,14 +781,14 @@ export default function App() {
             >
               <div className="flex flex-col md:flex-row md:items-center justify-between gap-8">
                 <div className="space-y-2">
-                  <h2 className="text-4xl font-black text-slate-900 tracking-tight">{t('applications.title')}</h2>
-                  <p className="text-slate-500 font-medium">{t('applications.subtitle').replace('{count}', applications.length.toString())}</p>
+                  <h2 className="text-4xl font-black text-slate-900 tracking-tight">My Applications</h2>
+                  <p className="text-slate-500 font-medium">Tracking {applications.length} scholarships you've started or completed.</p>
                 </div>
                 <button 
                   onClick={() => setView('Results')}
                   className="flex items-center gap-2 px-6 py-3 bg-white text-slate-900 border border-slate-100 rounded-2xl text-xs font-black uppercase tracking-widest shadow-sm hover:bg-slate-50 transition-all"
                 >
-                  <ArrowLeft size={14} /> {t('applications.back')}
+                  <ArrowLeft size={14} /> Back to All Matches
                 </button>
               </div>
 
@@ -621,9 +796,9 @@ export default function App() {
                 <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-8">
                   {results
                     .filter(r => applications.some(a => a.scholarshipId === r.scholarship.id))
-                    .map((result) => (
+                    .map((result, index) => (
                       <ScholarshipCard
-                        key={result.scholarship.id}
+                        key={`${result.scholarship.id}-${index}`}
                         scholarship={result.scholarship}
                         match={result.match}
                         applicationStatus={applications.find(a => a.scholarshipId === result.scholarship.id)?.status}
@@ -641,13 +816,13 @@ export default function App() {
                   <div className="w-20 h-20 bg-slate-50 text-slate-300 rounded-3xl flex items-center justify-center mx-auto mb-6">
                     <BookmarkCheck size={40} />
                   </div>
-                  <h3 className="text-2xl font-black text-slate-900 mb-2">{t('applications.empty.title')}</h3>
-                  <p className="text-slate-500 font-medium mb-8">{t('applications.empty.desc')}</p>
+                  <h3 className="text-2xl font-black text-slate-900 mb-2">No Applications Yet</h3>
+                  <p className="text-slate-500 font-medium mb-8">Start exploring matches and click "Apply Now" to track them here.</p>
                   <button 
                     onClick={() => setView('Results')}
-                    className="px-8 py-4 bg-indigo-600 text-white rounded-2xl text-sm font-black uppercase tracking-widest shadow-xl shadow-indigo-100 hover:bg-indigo-700 transition-all"
+                    className="px-8 py-4 bg-blue-600 text-white rounded-2xl text-sm font-black uppercase tracking-widest shadow-xl shadow-blue-100 hover:bg-blue-700 transition-all"
                   >
-                    {t('applications.empty.btn')}
+                    Explore Scholarships
                   </button>
                 </div>
               )}
@@ -662,14 +837,14 @@ export default function App() {
             >
               <div className="flex flex-col md:flex-row md:items-center justify-between gap-8">
                 <div className="space-y-2">
-                  <h2 className="text-4xl font-black text-slate-900 tracking-tight">{t('saved.title')}</h2>
-                  <p className="text-slate-500 font-medium">{t('saved.subtitle').replace('{count}', savedIds.length.toString())}</p>
+                  <h2 className="text-4xl font-black text-slate-900 tracking-tight">Saved Scholarships</h2>
+                  <p className="text-slate-500 font-medium">You have {savedIds.length} scholarships saved for later.</p>
                 </div>
                 <button 
                   onClick={() => setView('Results')}
                   className="flex items-center gap-2 px-6 py-3 bg-white text-slate-900 border border-slate-100 rounded-2xl text-xs font-black uppercase tracking-widest shadow-sm hover:bg-slate-50 transition-all"
                 >
-                  <ArrowLeft size={14} /> {t('saved.back')}
+                  <ArrowLeft size={14} /> Back to All Matches
                 </button>
               </div>
 
@@ -677,9 +852,9 @@ export default function App() {
                 <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-8">
                   {results
                     .filter(r => savedIds.includes(r.scholarship.id))
-                    .map((result) => (
+                    .map((result, index) => (
                       <ScholarshipCard
-                        key={result.scholarship.id}
+                        key={`${result.scholarship.id}-${index}`}
                         scholarship={result.scholarship}
                         match={result.match}
                         applicationStatus={applications.find(a => a.scholarshipId === result.scholarship.id)?.status}
@@ -697,13 +872,13 @@ export default function App() {
                   <div className="w-20 h-20 bg-slate-50 text-slate-300 rounded-3xl flex items-center justify-center mx-auto mb-6">
                     <Heart size={40} />
                   </div>
-                  <h3 className="text-2xl font-black text-slate-900 mb-2">{t('saved.empty.title')}</h3>
-                  <p className="text-slate-500 font-medium mb-8">{t('saved.empty.desc')}</p>
+                  <h3 className="text-2xl font-black text-slate-900 mb-2">No Saved Scholarships</h3>
+                  <p className="text-slate-500 font-medium mb-8">Click the heart icon on any scholarship to save it for later.</p>
                   <button 
                     onClick={() => setView('Results')}
-                    className="px-8 py-4 bg-indigo-600 text-white rounded-2xl text-sm font-black uppercase tracking-widest shadow-xl shadow-indigo-100 hover:bg-indigo-700 transition-all"
+                    className="px-8 py-4 bg-blue-600 text-white rounded-2xl text-sm font-black uppercase tracking-widest shadow-xl shadow-blue-100 hover:bg-blue-700 transition-all"
                   >
-                    {t('saved.empty.btn')}
+                    Find Scholarships
                   </button>
                 </div>
               )}
@@ -724,6 +899,7 @@ export default function App() {
                   onSave={handleSave}
                   onApply={handleApply}
                   onUpdateProfile={handleProfileSubmit}
+                  onAutoSave={handleAutoSave}
                   onUpdateStatus={handleUpdateApplicationStatus}
                   onUpdateNotes={handleUpdateApplicationNotes}
                   isLoading={isLoading}
@@ -742,11 +918,11 @@ export default function App() {
                 <div className="flex flex-col lg:flex-row lg:items-center justify-between gap-6 md:gap-8">
                   <div className="space-y-1 md:space-y-2">
                     <h2 className="text-3xl md:text-4xl font-black text-slate-900 tracking-tight">
-                      {t('results.found')} <span className="text-indigo-600">{results.length}</span> {t('results.opportunities')}
+                      Found <span className="text-blue-600">{results.length}</span> Opportunities
                     </h2>
                     <p className="text-slate-400 text-xs md:text-sm font-medium flex items-center gap-2">
                       <MapPin size={14} className="text-rose-400" /> 
-                      {t('results.matchesFor').replace('{name}', profile.fullName).replace('{country}', profile.country)}
+                      Matches for {profile.fullName} in {profile.country}
                     </p>
                   </div>
 
@@ -756,17 +932,17 @@ export default function App() {
                         <Search className="absolute left-4 top-1/2 -translate-y-1/2 text-slate-300" size={18} />
                         <input
                           type="text"
-                          placeholder={t('results.searchPlaceholder')}
+                          placeholder="Search keywords..."
                           value={searchQuery}
                           onChange={(e) => setSearchQuery(e.target.value)}
-                          className="pl-12 pr-6 py-3 bg-slate-50 border border-slate-100 rounded-2xl focus:outline-none focus:ring-2 focus:ring-indigo-500/20 focus:border-indigo-400 transition-all text-sm font-medium w-full md:w-64"
+                          className="pl-12 pr-6 py-3 bg-slate-50 border border-slate-100 rounded-2xl focus:outline-none focus:ring-2 focus:ring-blue-500/20 focus:border-blue-400 transition-all text-sm font-medium w-full md:w-64"
                         />
                       </div>
                       <div className="flex gap-2">
                         <button
                           onClick={() => profile && handleProfileSubmit(profile)}
-                          className="p-3 bg-white border border-slate-100 hover:border-indigo-200 text-slate-400 hover:text-indigo-600 rounded-2xl transition-all shadow-sm flex items-center justify-center flex-grow sm:flex-grow-0"
-                          title={t('results.refresh')}
+                          className="p-3 bg-white border border-slate-100 hover:border-blue-200 text-slate-400 hover:text-blue-600 rounded-2xl transition-all shadow-sm flex items-center justify-center flex-grow sm:flex-grow-0"
+                          title="Refresh search results"
                         >
                           <motion.div
                             animate={isLoading ? { rotate: 360 } : {}}
@@ -779,11 +955,11 @@ export default function App() {
                           onClick={() => setShowAdvancedFilters(!showAdvancedFilters)}
                           className={`px-4 py-3 rounded-2xl text-[10px] font-black uppercase tracking-widest transition-all border flex items-center gap-2 flex-grow sm:flex-grow-0 ${
                             showAdvancedFilters 
-                              ? 'bg-indigo-600 text-white border-indigo-600 shadow-lg shadow-indigo-200' 
-                              : 'bg-white text-slate-400 border-slate-100 hover:border-indigo-200'
+                              ? 'bg-blue-600 text-white border-blue-600 shadow-lg shadow-blue-200' 
+                              : 'bg-white text-slate-400 border-slate-100 hover:border-blue-200'
                           }`}
                         >
-                          <Filter size={14} /> {showAdvancedFilters ? t('results.hideFilters') : t('results.filters')}
+                          <Filter size={14} /> {showAdvancedFilters ? 'Hide' : 'Filters'}
                         </button>
                       </div>
                       
@@ -793,7 +969,7 @@ export default function App() {
                             <button
                               key={idx}
                               onClick={() => setSearchQuery(query)}
-                              className="px-3 py-1 bg-white border border-slate-100 hover:border-indigo-200 text-slate-400 hover:text-indigo-600 rounded-full text-[10px] font-bold transition-all flex items-center gap-1.5 shadow-sm"
+                              className="px-3 py-1 bg-white border border-slate-100 hover:border-blue-200 text-slate-400 hover:text-blue-600 rounded-full text-[10px] font-bold transition-all flex items-center gap-1.5 shadow-sm"
                             >
                               <Clock size={10} /> {query}
                             </button>
@@ -811,11 +987,11 @@ export default function App() {
                               onClick={() => setFilter(cat)}
                               className={`px-4 md:px-6 py-2 rounded-xl text-[10px] font-black uppercase tracking-widest transition-all ${
                                 filter === cat 
-                                  ? 'bg-white text-indigo-600 shadow-sm' 
+                                  ? 'bg-white text-blue-600 shadow-sm' 
                                   : 'text-slate-400 hover:text-slate-600'
                               }`}
                             >
-                              {cat === 'All' ? t('filter.all') : cat === 'Government' ? t('filter.government') : t('filter.private')}
+                              {cat}
                             </button>
                           ))}
                         </div>
@@ -827,11 +1003,11 @@ export default function App() {
                               onClick={() => setScopeFilter(scope)}
                               className={`px-3 md:px-4 py-2 rounded-xl text-[10px] font-black uppercase tracking-widest transition-all ${
                                 scopeFilter === scope 
-                                  ? 'bg-white text-indigo-600 shadow-sm' 
+                                  ? 'bg-white text-blue-600 shadow-sm' 
                                   : 'text-slate-400 hover:text-slate-600'
                               }`}
                             >
-                              {scope === 'All' ? t('filter.all') : scope === 'State' ? t('filter.state') : scope === 'National' ? t('filter.national') : t('filter.global')}
+                              {scope}
                             </button>
                           ))}
                         </div>
@@ -844,9 +1020,10 @@ export default function App() {
                             onChange={(e) => setSortBy(e.target.value as any)}
                             className="w-full bg-transparent border-none text-[10px] font-black uppercase tracking-widest text-slate-600 focus:ring-0 px-4 py-2 cursor-pointer outline-none"
                           >
-                            <option value="Match">{t('sort.match')}</option>
-                            <option value="AmountDesc">{t('sort.amount')}</option>
-                            <option value="DeadlineAsc">{t('sort.deadline')}</option>
+                            <option value="Match">Sort: Match</option>
+                            <option value="AmountDesc">Sort: Amount</option>
+                            <option value="DeadlineAsc">Sort: Deadline</option>
+                            <option value="ProviderAsc">Sort: Provider (A-Z)</option>
                           </select>
                         </div>
 
@@ -855,10 +1032,10 @@ export default function App() {
                           className={`px-4 py-3 rounded-2xl text-[10px] font-black uppercase tracking-widest transition-all border flex items-center gap-2 flex-grow sm:flex-grow-0 ${
                             communityOnly 
                               ? 'bg-slate-900 text-white border-slate-900 shadow-lg shadow-slate-200' 
-                              : 'bg-white text-slate-400 border-slate-100 hover:border-indigo-200'
+                              : 'bg-white text-slate-400 border-slate-100 hover:border-blue-200'
                           }`}
                         >
-                          <Filter size={14} /> <span className="hidden sm:inline">{t('filter.community')}</span>
+                          <Filter size={14} /> <span className="hidden sm:inline">Community</span>
                         </button>
                       </div>
                     </div>
@@ -875,88 +1052,124 @@ export default function App() {
                     >
                       <div className="grid grid-cols-1 md:grid-cols-4 gap-6">
                         <div className="space-y-2">
-                          <label className="text-[10px] font-black uppercase tracking-widest text-slate-400 ml-1">{t('filter.major')}</label>
+                          <label className="text-[10px] font-black uppercase tracking-widest text-slate-400 ml-1">Major / Field</label>
                           <input
                             type="text"
-                            placeholder={t('filter.majorPlaceholder')}
+                            placeholder="e.g. Computer Science"
                             value={majorFilter === 'All' ? '' : majorFilter}
                             onChange={(e) => setMajorFilter(e.target.value || 'All')}
-                            className="w-full px-4 py-3 bg-slate-50 border border-slate-100 rounded-xl focus:outline-none focus:ring-2 focus:ring-indigo-500/20 text-xs font-medium"
+                            className="w-full px-4 py-3 bg-slate-50 border border-slate-100 rounded-xl focus:outline-none focus:ring-2 focus:ring-blue-500/20 text-xs font-medium"
                           />
                         </div>
                         <div className="space-y-2">
-                          <label className="text-[10px] font-black uppercase tracking-widest text-slate-400 ml-1">{t('filter.gpa')}</label>
+                          <label className="text-[10px] font-black uppercase tracking-widest text-slate-400 ml-1">Max Min GPA</label>
                           <select
                             value={gpaFilter}
                             onChange={(e) => setGpaFilter(e.target.value)}
-                            className="w-full px-4 py-3 bg-slate-50 border border-slate-100 rounded-xl focus:outline-none focus:ring-2 focus:ring-indigo-500/20 text-xs font-medium"
+                            className="w-full px-4 py-3 bg-slate-50 border border-slate-100 rounded-xl focus:outline-none focus:ring-2 focus:ring-blue-500/20 text-xs font-medium"
                           >
-                            <option value="All">{t('filter.anyGpa')}</option>
-                            <option value="5.0">{t('filter.upTo')} 5.0</option>
-                            <option value="6.0">{t('filter.upTo')} 6.0</option>
-                            <option value="7.0">{t('filter.upTo')} 7.0</option>
-                            <option value="8.0">{t('filter.upTo')} 8.0</option>
-                            <option value="9.0">{t('filter.upTo')} 9.0</option>
-                            <option value="10.0">{t('filter.upTo')} 10.0</option>
+                            <option value="All">Any CGPA</option>
+                            <option value="5.0">Up to 5.0</option>
+                            <option value="6.0">Up to 6.0</option>
+                            <option value="7.0">Up to 7.0</option>
+                            <option value="8.0">Up to 8.0</option>
+                            <option value="9.0">Up to 9.0</option>
+                            <option value="10.0">Up to 10.0</option>
                           </select>
                         </div>
                         <div className="space-y-2">
-                          <label className="text-[10px] font-black uppercase tracking-widest text-slate-400 ml-1">{t('filter.location')}</label>
+                          <label className="text-[10px] font-black uppercase tracking-widest text-slate-400 ml-1">Location</label>
                           <input
                             type="text"
-                            placeholder={t('filter.locationPlaceholder')}
+                            placeholder="e.g. California"
                             value={locationFilter === 'All' ? '' : locationFilter}
                             onChange={(e) => setLocationFilter(e.target.value || 'All')}
-                            className="w-full px-4 py-3 bg-slate-50 border border-slate-100 rounded-xl focus:outline-none focus:ring-2 focus:ring-indigo-500/20 text-xs font-medium"
+                            className="w-full px-4 py-3 bg-slate-50 border border-slate-100 rounded-xl focus:outline-none focus:ring-2 focus:ring-blue-500/20 text-xs font-medium"
                           />
                         </div>
                         <div className="space-y-2">
-                          <label className="text-[10px] font-black uppercase tracking-widest text-slate-400 ml-1">{t('filter.type')}</label>
+                          <label className="text-[10px] font-black uppercase tracking-widest text-slate-400 ml-1">Scholarship Type</label>
                           <select
                             value={typeFilter}
                             onChange={(e) => setTypeFilter(e.target.value as any)}
-                            className="w-full px-4 py-3 bg-slate-50 border border-slate-100 rounded-xl focus:outline-none focus:ring-2 focus:ring-indigo-500/20 text-xs font-medium"
+                            className="w-full px-4 py-3 bg-slate-50 border border-slate-100 rounded-xl focus:outline-none focus:ring-2 focus:ring-blue-500/20 text-xs font-medium"
                           >
-                            <option value="All">{t('filter.allTypes')}</option>
-                            <option value="Merit-based">{t('filter.meritBased')}</option>
-                            <option value="Need-based">{t('filter.needBased')}</option>
-                            <option value="Other">{t('filter.other')}</option>
+                            <option value="All">All Types</option>
+                            <option value="Merit-based">Merit-based</option>
+                            <option value="Need-based">Need-based</option>
+                            <option value="Other">Other</option>
                           </select>
                         </div>
 
                         {/* New Filters */}
                         <div className="space-y-2">
-                          <label className="text-[10px] font-black uppercase tracking-widest text-slate-400 ml-1">{t('filter.amountRange')}</label>
+                          <label className="text-[10px] font-black uppercase tracking-widest text-slate-400 ml-1">Deadline</label>
+                          <select
+                            value={deadlineFilter}
+                            onChange={(e) => setDeadlineFilter(e.target.value)}
+                            className="w-full px-4 py-3 bg-slate-50 border border-slate-100 rounded-xl focus:outline-none focus:ring-2 focus:ring-blue-500/20 text-xs font-medium"
+                          >
+                            <option value="All">Any Deadline</option>
+                            <option value="Closing Soon">Closing Soon (1 Month)</option>
+                            <option value="Next 3 Months">Next 3 Months</option>
+                            <option value="Next 6 Months">Next 6 Months</option>
+                            <option value="Rolling/Upcoming">Rolling / Upcoming</option>
+                          </select>
+                        </div>
+                        <div className="space-y-2">
+                          <label className="text-[10px] font-black uppercase tracking-widest text-slate-400 ml-1">Amount Range</label>
                           <select
                             value={amountFilter}
                             onChange={(e) => setAmountFilter(e.target.value)}
-                            className="w-full px-4 py-3 bg-slate-50 border border-slate-100 rounded-xl focus:outline-none focus:ring-2 focus:ring-indigo-500/20 text-xs font-medium"
+                            className="w-full px-4 py-3 bg-slate-50 border border-slate-100 rounded-xl focus:outline-none focus:ring-2 focus:ring-blue-500/20 text-xs font-medium"
                           >
-                            <option value="All">{t('filter.anyAmount')}</option>
-                            <option value="0-1000">{t('filter.upTo')} 1,000</option>
+                            <option value="All">Any Amount</option>
+                            <option value="0-1000">Up to 1,000</option>
                             <option value="1000-5000">1,000 - 5,000</option>
                             <option value="5000-10000">5,000 - 10,000</option>
                             <option value="10000+">10,000+</option>
                           </select>
                         </div>
                         <div className="space-y-2">
-                          <label className="text-[10px] font-black uppercase tracking-widest text-slate-400 ml-1">{t('filter.provider')}</label>
+                          <label className="text-[10px] font-black uppercase tracking-widest text-slate-400 ml-1">Specific Provider</label>
                           <input
                             type="text"
-                            placeholder={t('filter.providerPlaceholder')}
+                            placeholder="e.g. Google, Tata"
                             value={providerFilter === 'All' ? '' : providerFilter}
                             onChange={(e) => setProviderFilter(e.target.value || 'All')}
-                            className="w-full px-4 py-3 bg-slate-50 border border-slate-100 rounded-xl focus:outline-none focus:ring-2 focus:ring-indigo-500/20 text-xs font-medium"
+                            className="w-full px-4 py-3 bg-slate-50 border border-slate-100 rounded-xl focus:outline-none focus:ring-2 focus:ring-blue-500/20 text-xs font-medium"
                           />
                         </div>
+                        <div className="space-y-2 flex flex-col justify-end">
+                          <label className="flex items-center gap-2 cursor-pointer p-3 bg-slate-50 border border-slate-100 rounded-xl hover:bg-slate-100 transition-colors">
+                            <input
+                              type="checkbox"
+                              checked={fullyFundedOnly}
+                              onChange={(e) => setFullyFundedOnly(e.target.checked)}
+                              className="w-4 h-4 text-blue-600 rounded focus:ring-blue-500"
+                            />
+                            <span className="text-xs font-medium text-slate-700">Fully Funded Only</span>
+                          </label>
+                        </div>
+                        <div className="space-y-2 flex flex-col justify-end">
+                          <label className="flex items-center gap-2 cursor-pointer p-3 bg-slate-50 border border-slate-100 rounded-xl hover:bg-slate-100 transition-colors">
+                            <input
+                              type="checkbox"
+                              checked={genderSpecificOnly}
+                              onChange={(e) => setGenderSpecificOnly(e.target.checked)}
+                              className="w-4 h-4 text-blue-600 rounded focus:ring-blue-500"
+                            />
+                            <span className="text-xs font-medium text-slate-700">Gender Specific Only</span>
+                          </label>
+                        </div>
                         <div className="space-y-2">
-                          <label className="text-[10px] font-black uppercase tracking-widest text-slate-400 ml-1">{t('filter.communityTarget')}</label>
+                          <label className="text-[10px] font-black uppercase tracking-widest text-slate-400 ml-1">Target Community</label>
                           <select
                             value={communityFilter}
                             onChange={(e) => setCommunityFilter(e.target.value)}
-                            className="w-full px-4 py-3 bg-slate-50 border border-slate-100 rounded-xl focus:outline-none focus:ring-2 focus:ring-indigo-500/20 text-xs font-medium"
+                            className="w-full px-4 py-3 bg-slate-50 border border-slate-100 rounded-xl focus:outline-none focus:ring-2 focus:ring-blue-500/20 text-xs font-medium"
                           >
-                            <option value="All">{t('filter.allCommunities')}</option>
+                            <option value="All">All Communities</option>
                             <option value="Students in STEM">Students in STEM</option>
                             <option value="Minority">Minority</option>
                             <option value="SC/ST">SC/ST</option>
@@ -974,12 +1187,15 @@ export default function App() {
                             setLocationFilter('All');
                             setTypeFilter('All');
                             setAmountFilter('All');
+                            setDeadlineFilter('All');
                             setProviderFilter('All');
                             setCommunityFilter('All');
+                            setFullyFundedOnly(false);
+                            setGenderSpecificOnly(false);
                           }}
                           className="text-[10px] font-black uppercase tracking-widest text-rose-500 hover:text-rose-700 transition-colors"
                         >
-                          {t('filter.reset')}
+                          Reset Advanced Filters
                         </button>
                       </div>
                     </motion.div>
@@ -1003,7 +1219,7 @@ export default function App() {
                   <div className="flex flex-wrap justify-center gap-4">
                     <button 
                       onClick={() => profile && handleProfileSubmit(profile)}
-                      className="px-8 py-3 bg-indigo-600 text-white rounded-2xl text-xs font-black uppercase tracking-widest shadow-xl shadow-indigo-100 hover:bg-indigo-700 transition-all"
+                      className="px-8 py-3 bg-blue-600 text-white rounded-2xl text-xs font-black uppercase tracking-widest shadow-xl shadow-blue-100 hover:bg-blue-700 transition-all"
                     >
                       Try Again
                     </button>
@@ -1040,9 +1256,9 @@ export default function App() {
                       <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-8">
                         {filteredResults
                           .filter(item => !item.scholarship.deadline.toLowerCase().includes('upcoming'))
-                          .map((item) => (
+                          .map((item, index) => (
                             <ScholarshipCard 
-                              key={item.scholarship.id} 
+                              key={`${item.scholarship.id}-${index}`} 
                               scholarship={item.scholarship} 
                               match={item.match} 
                               onApply={handleApply}
@@ -1064,7 +1280,7 @@ export default function App() {
                   {filteredResults.filter(item => item.scholarship.deadline.toLowerCase().includes('upcoming')).length > 0 && (
                     <section className="pt-16 border-t border-slate-100">
                       <div className="flex items-center gap-3 mb-8">
-                        <div className="w-10 h-10 bg-indigo-50 text-indigo-600 rounded-xl flex items-center justify-center">
+                        <div className="w-10 h-10 bg-blue-50 text-blue-600 rounded-xl flex items-center justify-center">
                           <GraduationCap size={20} />
                         </div>
                         <div>
@@ -1075,9 +1291,9 @@ export default function App() {
                       <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-8">
                         {filteredResults
                           .filter(item => item.scholarship.deadline.toLowerCase().includes('upcoming'))
-                          .map((item) => (
+                          .map((item, index) => (
                             <ScholarshipCard 
-                              key={item.scholarship.id} 
+                              key={`${item.scholarship.id}-${index}`} 
                               scholarship={item.scholarship} 
                               match={item.match} 
                               onApply={handleApply}
@@ -1127,7 +1343,7 @@ export default function App() {
                     {results.length > 0 && (
                       <div className="flex flex-wrap justify-center gap-3">
                         {searchQuery && (
-                          <button onClick={() => setSearchQuery('')} className="px-4 py-2 bg-indigo-50 text-indigo-600 rounded-full text-[10px] font-black uppercase tracking-widest border border-indigo-100 hover:bg-indigo-100 transition-colors">
+                          <button onClick={() => setSearchQuery('')} className="px-4 py-2 bg-blue-50 text-blue-600 rounded-full text-[10px] font-black uppercase tracking-widest border border-blue-100 hover:bg-blue-100 transition-colors">
                             Clear Search
                           </button>
                         )}
@@ -1137,7 +1353,7 @@ export default function App() {
                           </button>
                         )}
                         {scopeFilter !== 'All' && (
-                          <button onClick={() => setScopeFilter('All')} className="px-4 py-2 bg-indigo-50 text-indigo-600 rounded-full text-[10px] font-black uppercase tracking-widest border border-indigo-100 hover:bg-indigo-100 transition-colors">
+                          <button onClick={() => setScopeFilter('All')} className="px-4 py-2 bg-blue-50 text-blue-600 rounded-full text-[10px] font-black uppercase tracking-widest border border-blue-100 hover:bg-blue-100 transition-colors">
                             Show All Scopes
                           </button>
                         )}
@@ -1150,7 +1366,7 @@ export default function App() {
                     )}
                     <button 
                       onClick={() => setView('Profile')}
-                      className="mt-6 text-indigo-600 font-black uppercase tracking-widest text-[10px] hover:text-indigo-800 flex items-center justify-center gap-2 mx-auto group"
+                      className="mt-6 text-blue-600 font-black uppercase tracking-widest text-[10px] hover:text-blue-800 flex items-center justify-center gap-2 mx-auto group"
                     >
                       <ArrowLeft size={14} className="group-hover:-translate-x-1 transition-transform" /> Edit your profile
                     </button>
@@ -1228,9 +1444,9 @@ export default function App() {
             © 2026 MeritUs • Empowering Global Education
           </p>
           <div className="flex items-center gap-6">
-            <a href="#" className="text-slate-400 hover:text-indigo-600 transition-colors font-bold text-xs uppercase tracking-widest">Privacy</a>
-            <a href="#" className="text-slate-400 hover:text-indigo-600 transition-colors font-bold text-xs uppercase tracking-widest">Terms</a>
-            <a href="#" className="text-slate-400 hover:text-indigo-600 transition-colors font-bold text-xs uppercase tracking-widest">Contact</a>
+            <a href="#" className="text-slate-400 hover:text-blue-600 transition-colors font-bold text-xs uppercase tracking-widest">Privacy</a>
+            <a href="#" className="text-slate-400 hover:text-blue-600 transition-colors font-bold text-xs uppercase tracking-widest">Terms</a>
+            <a href="#" className="text-slate-400 hover:text-blue-600 transition-colors font-bold text-xs uppercase tracking-widest">Contact</a>
           </div>
         </div>
       </footer>

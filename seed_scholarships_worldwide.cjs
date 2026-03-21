@@ -1,15 +1,29 @@
-const { Pool } = require('pg');
+const Database = require('better-sqlite3');
 require('dotenv').config();
 
-if (!process.env.DATABASE_URL) {
-  console.error("CRITICAL: DATABASE_URL environment variable is missing.");
-  process.exit(1);
-}
-
-const pool = new Pool({
-  connectionString: process.env.DATABASE_URL,
-  ...(process.env.DATABASE_URL && !process.env.DATABASE_URL.includes('localhost') ? { ssl: { rejectUnauthorized: false } } : {})
-});
+const db = new Database('database.sqlite');
+const pool = {
+  query: async (sql, params = []) => {
+    const sqliteSql = sql.replace(/\$(\d+)/g, '?');
+    const isSelect = sqliteSql.trim().toUpperCase().startsWith('SELECT');
+    const safeParams = params.map(p => p === undefined ? null : p);
+    try {
+      if (isSelect) {
+        const rows = db.prepare(sqliteSql).all(...safeParams);
+        return { rows };
+      } else {
+        const info = db.prepare(sqliteSql).run(...safeParams);
+        return { rows: [], rowCount: info.changes };
+      }
+    } catch (error) {
+      console.error('SQL Error:', error);
+      throw error;
+    }
+  },
+  end: async () => {
+    db.close();
+  }
+};
 
 async function run() {
   console.log('Adding new columns to scholarships table...');

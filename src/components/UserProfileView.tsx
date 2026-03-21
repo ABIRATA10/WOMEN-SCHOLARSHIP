@@ -281,9 +281,9 @@ export const UserProfileView: React.FC<UserProfileViewProps> = ({
 
             {savedScholarships.length > 0 ? (
               <div className="grid grid-cols-1 md:grid-cols-2 gap-8">
-                {savedScholarships.map((result) => (
+                {savedScholarships.map((result, index) => (
                   <ScholarshipCard
-                    key={result.scholarship.id}
+                    key={`${result.scholarship.id}-${index}`}
                     scholarship={result.scholarship}
                     match={result.match}
                     applicationStatus={applications.find(a => a.scholarshipId === result.scholarship.id)?.status}

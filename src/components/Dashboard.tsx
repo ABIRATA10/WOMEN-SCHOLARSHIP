@@ -21,7 +21,6 @@ import { ScholarshipMatch, UserProfile, Application, ApplicationStatus } from '.
 import { getRecommendations } from '../services/gemini';
 import { RecommendationCard } from './RecommendationCard';
 import { Sparkles as SparklesIcon, Lightbulb } from 'lucide-react';
-import { useLanguage } from '../contexts/LanguageContext';
 
 interface DashboardProps {
   results: ScholarshipMatch[];
@@ -48,7 +47,6 @@ export const Dashboard: React.FC<DashboardProps> = ({
   onSave,
   onClearHistory
 }) => {
-  const { t } = useLanguage();
   const [recommendations, setRecommendations] = React.useState<ScholarshipMatch[]>([]);
   const [isRecLoading, setIsRecLoading] = React.useState(false);
 
@@ -154,9 +152,9 @@ export const Dashboard: React.FC<DashboardProps> = ({
   }, [applications]);
 
   const stats = [
-    { label: t('dashboard.totalMatches'), value: results.length, icon: <Target className="text-indigo-600" />, color: 'from-indigo-500/10 to-indigo-500/5', textColor: 'text-indigo-600' },
+    { label: 'Total Matches', value: results.length, icon: <Target className="text-blue-600" />, color: 'from-blue-500/10 to-blue-500/5', textColor: 'text-blue-600' },
     { label: 'Avg Amount', value: profile ? `${profile.country === 'India' ? '₹' : '$'}${scholarshipStats.avgAmount.toLocaleString()}` : scholarshipStats.avgAmount.toLocaleString(), icon: <TrendingUp className="text-emerald-600" />, color: 'from-emerald-500/10 to-emerald-500/5', textColor: 'text-emerald-600' },
-    { label: t('dashboard.applications'), value: applications.length, icon: <Activity className="text-amber-600" />, color: 'from-amber-500/10 to-amber-500/5', textColor: 'text-amber-600' },
+    { label: 'Applications', value: applications.length, icon: <Activity className="text-amber-600" />, color: 'from-amber-500/10 to-amber-500/5', textColor: 'text-amber-600' },
     { label: 'Awarded', value: applications.filter(a => a.status === 'Awarded').length, icon: <Award className="text-rose-600" />, color: 'from-rose-500/10 to-rose-500/5', textColor: 'text-rose-600' },
   ];
 
@@ -229,7 +227,7 @@ export const Dashboard: React.FC<DashboardProps> = ({
         <div className="flex items-center justify-between mb-8">
           <div>
             <h3 className="text-xl font-black text-slate-900 flex items-center gap-2">
-              <SparklesIcon size={20} className="text-indigo-600" /> Recommended for You
+              <SparklesIcon size={20} className="text-blue-600" /> Recommended for You
             </h3>
             <p className="text-xs text-slate-400 font-medium mt-1">Personalized matches based on your activity</p>
           </div>
@@ -243,9 +241,9 @@ export const Dashboard: React.FC<DashboardProps> = ({
           </div>
         ) : recommendations.length > 0 ? (
           <div className="grid grid-cols-1 md:grid-cols-3 gap-8">
-            {recommendations.map(r => (
+            {recommendations.map((r, index) => (
               <RecommendationCard 
-                key={r.scholarship.id}
+                key={`${r.scholarship.id}-${index}`}
                 match={r}
                 onApply={onApply}
                 onSave={onSave}
@@ -272,8 +270,8 @@ export const Dashboard: React.FC<DashboardProps> = ({
           <div className="flex items-center justify-between mb-6 md:mb-10">
             <div>
               <h3 className="text-xl md:text-2xl font-black text-slate-900 flex items-center gap-3">
-                <div className="w-8 h-8 md:w-10 md:h-10 bg-indigo-50 rounded-xl flex items-center justify-center">
-                  <BarChart3 size={18} className="text-indigo-600" />
+                <div className="w-8 h-8 md:w-10 md:h-10 bg-blue-50 rounded-xl flex items-center justify-center">
+                  <BarChart3 size={18} className="text-blue-600" />
                 </div>
                 Topic Interest Analysis
               </h3>
@@ -424,13 +422,13 @@ export const Dashboard: React.FC<DashboardProps> = ({
           </div>
           
           <div className="flex items-center justify-between md:justify-start gap-4 md:gap-6 bg-slate-50 p-2 md:p-3 rounded-[1.25rem] md:rounded-[1.5rem] border border-slate-100 shadow-inner">
-            <button onClick={prevMonth} className="p-2 md:p-3 hover:bg-white rounded-xl transition-all text-slate-400 hover:text-indigo-600 shadow-sm hover:shadow-indigo-100">
+            <button onClick={prevMonth} className="p-2 md:p-3 hover:bg-white rounded-xl transition-all text-slate-400 hover:text-blue-600 shadow-sm hover:shadow-blue-100">
               <ChevronLeft className="w-4 h-4 md:w-5 md:h-5" />
             </button>
             <span className="text-xs md:text-sm font-black uppercase tracking-[0.1em] md:tracking-[0.2em] text-slate-900 min-w-[120px] md:min-w-[160px] text-center">
               {monthName} {year}
             </span>
-            <button onClick={nextMonth} className="p-2 md:p-3 hover:bg-white rounded-xl transition-all text-slate-400 hover:text-indigo-600 shadow-sm hover:shadow-indigo-100">
+            <button onClick={nextMonth} className="p-2 md:p-3 hover:bg-white rounded-xl transition-all text-slate-400 hover:text-blue-600 shadow-sm hover:shadow-blue-100">
               <ChevronRight className="w-4 h-4 md:w-5 md:h-5" />
             </button>
           </div>
@@ -460,11 +458,11 @@ export const Dashboard: React.FC<DashboardProps> = ({
                     onClick={() => setSelectedDate(dateKey)}
                     className={`aspect-square rounded-xl md:rounded-[1.25rem] flex flex-col items-center justify-center relative transition-all border-2 ${
                       isSelected 
-                        ? 'bg-indigo-600 text-white border-indigo-600 shadow-xl shadow-indigo-100 z-10' 
+                        ? 'bg-blue-600 text-white border-blue-600 shadow-xl shadow-blue-100 z-10' 
                         : hasDeadlines
                         ? 'bg-rose-50 text-rose-600 border-rose-100 hover:border-rose-300'
                         : 'bg-white text-slate-600 border-slate-50 hover:border-slate-200'
-                    } ${isToday && !isSelected ? 'ring-2 ring-indigo-500 ring-offset-4' : ''}`}
+                    } ${isToday && !isSelected ? 'ring-2 ring-blue-500 ring-offset-4' : ''}`}
                   >
                     <span className="text-sm md:text-base font-black">{day}</span>
                     {hasDeadlines && !isSelected && (
@@ -487,7 +485,7 @@ export const Dashboard: React.FC<DashboardProps> = ({
             <div className="p-6 md:p-8 bg-slate-50 rounded-[2rem] md:rounded-[2.5rem] border border-slate-100 h-full min-h-[300px] md:min-h-[400px]">
               <div className="flex items-center gap-3 mb-6 md:mb-8">
                 <div className="w-7 h-7 md:w-8 md:h-8 bg-white rounded-lg flex items-center justify-center shadow-sm">
-                  <Activity className="w-3.5 h-3.5 md:w-4 md:h-4 text-indigo-600" />
+                  <Activity className="w-3.5 h-3.5 md:w-4 md:h-4 text-blue-600" />
                 </div>
                 <h4 className="text-[10px] md:text-xs font-black uppercase tracking-widest text-slate-400">
                   {selectedDate ? `Deadlines for ${new Date(selectedDate).toLocaleDateString('en-US', { month: 'short', day: 'numeric' })}` : 'Select a date'}
@@ -498,13 +496,13 @@ export const Dashboard: React.FC<DashboardProps> = ({
                 {selectedScholarships ? (
                   selectedScholarships.map((r, i) => (
                     <motion.div
-                      key={r.scholarship.id}
+                      key={`${r.scholarship.id}-${i}`}
                       initial={{ opacity: 0, x: 20 }}
                       animate={{ opacity: 1, x: 0 }}
                       transition={{ delay: i * 0.1 }}
                       className="bg-white p-5 rounded-2xl border border-slate-100 shadow-sm hover:shadow-xl hover:shadow-slate-100 transition-all group cursor-pointer"
                     >
-                      <p className="text-sm font-black text-slate-900 line-clamp-2 group-hover:text-indigo-600 transition-colors leading-snug">{r.scholarship.title}</p>
+                      <p className="text-sm font-black text-slate-900 line-clamp-2 group-hover:text-blue-600 transition-colors leading-snug">{r.scholarship.title}</p>
                       <p className="text-[10px] text-slate-400 font-bold mt-2 uppercase tracking-wider">{r.scholarship.provider}</p>
                       <div className="flex items-center justify-between mt-4">
                         <span className="text-[10px] font-black text-emerald-600 bg-emerald-50 px-3 py-1 rounded-lg border border-emerald-100">{r.scholarship.amount}</span>
@@ -513,7 +511,7 @@ export const Dashboard: React.FC<DashboardProps> = ({
                           target="_blank" 
                           rel="noopener noreferrer"
                           onClick={(e) => e.stopPropagation()}
-                          className="p-2 bg-slate-50 text-slate-400 hover:text-indigo-600 hover:bg-indigo-50 rounded-xl transition-all border border-slate-100 hover:border-indigo-100"
+                          className="p-2 bg-slate-50 text-slate-400 hover:text-blue-600 hover:bg-blue-50 rounded-xl transition-all border border-slate-100 hover:border-blue-100"
                         >
                           <ExternalLink size={14} />
                         </a>
@@ -544,13 +542,13 @@ export const Dashboard: React.FC<DashboardProps> = ({
           transition={{ delay: 0.4 }}
           className="lg:col-span-2 bg-slate-900 p-8 md:p-12 rounded-[2.5rem] md:rounded-[3.5rem] text-white relative overflow-hidden group"
         >
-          <div className="absolute top-0 right-0 w-64 md:w-96 h-64 md:h-96 bg-indigo-500/20 rounded-full blur-[80px] md:blur-[100px] -mr-32 -mt-32 group-hover:bg-indigo-500/30 transition-all duration-700" />
+          <div className="absolute top-0 right-0 w-64 md:w-96 h-64 md:h-96 bg-blue-500/20 rounded-full blur-[80px] md:blur-[100px] -mr-32 -mt-32 group-hover:bg-blue-500/30 transition-all duration-700" />
           <div className="absolute bottom-0 left-0 w-48 md:w-64 h-48 md:h-64 bg-rose-500/10 rounded-full blur-[60px] md:blur-[80px] -ml-32 -mb-32" />
           
           <div className="relative z-10">
             <div className="flex items-center gap-3 mb-6 md:mb-8">
               <div className="w-10 h-10 md:w-12 md:h-12 bg-white/10 backdrop-blur-md rounded-2xl flex items-center justify-center border border-white/10">
-                <Lightbulb className="w-5 h-5 md:w-6 md:h-6 text-indigo-400" />
+                <Lightbulb className="w-5 h-5 md:w-6 md:h-6 text-blue-400" />
               </div>
               <div>
                 <h3 className="text-xl md:text-2xl font-black tracking-tight">AI Strategic Insight</h3>
@@ -559,7 +557,7 @@ export const Dashboard: React.FC<DashboardProps> = ({
             </div>
 
             <p className="text-base md:text-xl text-slate-200 leading-relaxed max-w-3xl font-medium">
-              Based on your profile and browsing history, you have a high affinity for <span className="text-indigo-400 font-black underline decoration-indigo-400/30 underline-offset-8">{interestData[0]?.name || 'specialized'}</span> programs. 
+              Based on your profile and browsing history, you have a high affinity for <span className="text-blue-400 font-black underline decoration-blue-400/30 underline-offset-8">{interestData[0]?.name || 'specialized'}</span> programs. 
               We've identified that <span className="text-rose-400 font-black underline decoration-rose-400/30 underline-offset-8">{categoryData.sort((a,b) => b.value - a.value)[0]?.name || 'merit-based'}</span> scholarships 
               currently offer your best success rate. Focus your next 3 applications here to build momentum.
             </p>
@@ -583,7 +581,7 @@ export const Dashboard: React.FC<DashboardProps> = ({
 
               <div className="flex items-center gap-3">
                 <div className="px-3 md:px-4 py-2 bg-white/5 rounded-xl border border-white/10 backdrop-blur-sm">
-                  <span className="text-indigo-400 font-black text-base md:text-lg">84%</span>
+                  <span className="text-blue-400 font-black text-base md:text-lg">84%</span>
                   <span className="ml-2 text-[9px] md:text-[10px] text-slate-400 font-bold uppercase tracking-widest">Avg Match</span>
                 </div>
               </div>
@@ -623,9 +621,9 @@ export const Dashboard: React.FC<DashboardProps> = ({
                 <motion.div 
                   key={i} 
                   whileHover={{ x: 5 }}
-                  className="flex items-center gap-4 p-4 bg-slate-50/50 rounded-2xl border border-slate-100 hover:border-indigo-100 hover:bg-indigo-50/30 transition-all cursor-pointer group"
+                  className="flex items-center gap-4 p-4 bg-slate-50/50 rounded-2xl border border-slate-100 hover:border-blue-100 hover:bg-blue-50/30 transition-all cursor-pointer group"
                 >
-                  <div className="w-2 h-2 rounded-full bg-indigo-400 group-hover:scale-150 transition-transform" />
+                  <div className="w-2 h-2 rounded-full bg-blue-400 group-hover:scale-150 transition-transform" />
                   <span className="text-sm font-bold text-slate-600 truncate">{query}</span>
                 </motion.div>
               ))

@@ -2,7 +2,7 @@ import express from "express";
 import { createServer as createViteServer } from "vite";
 import { OAuth2Client } from "google-auth-library";
 import dotenv from "dotenv";
-import Database from "better-sqlite3";
+
 import path from "path";
 import bcrypt from "bcryptjs";
 import crypto from "crypto";

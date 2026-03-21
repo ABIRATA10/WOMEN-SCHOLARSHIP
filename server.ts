@@ -972,6 +972,9 @@ if (process.env.NODE_ENV !== "production") {
   });
 }
 
-app.listen(PORT, "0.0.0.0", () => {
-  console.log(`Server running on http://localhost:${PORT}`);
+// Railway assigns a dynamic PORT. "0.0.0.0" makes the server public.
+const PORT = process.env.PORT || 3000;
+
+app.listen(Number(PORT), "0.0.0.0", () => {
+  console.log(`🚀 Server is live and public on port ${PORT}`);
 });

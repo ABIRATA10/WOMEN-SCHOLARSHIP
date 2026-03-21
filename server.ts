@@ -9,6 +9,7 @@ import bcrypt from "bcryptjs";
 import crypto from "crypto";
 import nodemailer from "nodemailer";
 import jwt from "jsonwebtoken";
+import { Pool } from "pg";
 import { validatePassword } from "./src/utils/passwordValidator";
 
 
@@ -55,43 +56,11 @@ const sendEmail = async (to: string, subject: string, text: string) => {
   }
 };
 
-// Database setup
-const db = new Database('database.sqlite');
-const pool = {
-  query: async (sql: string, params: any[] = []) => {
-    const sqliteSql = sql.replace(/\$(\d+)/g, '?');
-    const isSelect = sqliteSql.trim().toUpperCase().startsWith('SELECT');
-    const safeParams = params.map(p => p === undefined ? null : p);
-    try {
-      if (isSelect) {
-        const rows = db.prepare(sqliteSql).all(...safeParams);
-        return { rows };
-      } else {
-        const info = db.prepare(sqliteSql).run(...safeParams);
-        return { rows: [], rowCount: info.changes };
-      }
-    } catch (error) {
-      console.error('SQL Error:', error);
-      throw error;
-    }
-  }
-};
-
-const initDb = async () => {
-  try {
-    await pool.query(`
-      CREATE TABLE IF NOT EXISTS users (
-        id TEXT PRIMARY KEY,
-        email TEXT UNIQUE,
-        password TEXT,
-        fullName TEXT,
-        phoneNumber TEXT,
-        resetCode TEXT,
-        resetCodeExpires BIGINT,
-        password_hash TEXT,
-        auth_provider TEXT DEFAULT 'email'
-      )
-    `);
+const pool = new Pool({
+  connectionString: process.env.DATABASE_URL,
+  ssl: { rejectUnauthorized: false }
+});
+      
 
     await pool.query(`
       CREATE TABLE IF NOT EXISTS user_profiles (

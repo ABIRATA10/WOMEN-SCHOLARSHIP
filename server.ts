@@ -1,3 +1,4 @@
+import cors from 'cors';
 import express from "express";
 import { createServer as createViteServer } from "vite";
 import { OAuth2Client } from "google-auth-library";

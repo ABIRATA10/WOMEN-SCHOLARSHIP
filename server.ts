@@ -17,7 +17,6 @@ dotenv.config();
 const JWT_SECRET = process.env.JWT_SECRET || "your-secret-key-for-jwt";
 
 const app = express();
-const PORT = Number(process.env.PORT) || 3000;
 
 // ==================== ADD/KEEP THIS CORS BLOCK HERE ====================
 const allowedOrigins = [

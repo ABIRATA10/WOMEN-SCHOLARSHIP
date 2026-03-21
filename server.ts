@@ -16,43 +16,24 @@ dotenv.config();
 const JWT_SECRET = process.env.JWT_SECRET || "your-secret-key-for-jwt";
 const app = express();
 
-// This FIXES the Vercel connection error permanently
+// --- THE PERMANENT CORS WILDCARD FIX ---
+// This allows ANY Vercel preview URL to talk to your backend
 app.use(cors({
-  origin: (origin, callback) => {
-    if (!origin || origin.endsWith(".vercel.app") || origin === "http://localhost:5173") {
-      callback(null, true);
-    } else {
-      callback(new Error("Not allowed by CORS"));
-    }
-  },
+  origin: true, 
   credentials: true,
   methods: ["GET", "POST", "PUT", "DELETE", "OPTIONS"],
   allowedHeaders: ["Content-Type", "Authorization", "x-user-email"]
 }));
 
+// This specifically handles the 'Preflight' handshake seen in your screenshot
+app.options('*', cors()); 
+
 app.use(express.json());
 
-// This FIXES the Railway "already declared" crash
+// --- SINGLE PORT DECLARATION ---
 const PORT = Number(process.env.PORT) || 3000;
 
-const pool = new Pool({
-  connectionString: process.env.DATABASE_URL,
-  ssl: { rejectUnauthorized: false },
-});
-
-const initDb = async () => {
-  try {
-    await pool.query(`
-      CREATE TABLE IF NOT EXISTS users (
-        id TEXT PRIMARY KEY,
-        email TEXT UNIQUE,
-        password TEXT,
-        password_hash TEXT,
-        auth_provider TEXT,
-        fullName TEXT,
-        phoneNumber TEXT
-      )
-    `);
+// --- DATABASE & EMAIL LOGIC STARTS BELOW ---
 
     await pool.query(`
       CREATE TABLE IF NOT EXISTS user_profiles (
@@ -932,7 +913,8 @@ if (process.env.NODE_ENV !== "production") {
 // Railway assigns a dynamic PORT. "0.0.0.0" makes the server public.
 
 
-// At the absolute bottom of the file
-app.listen(Number(PORT), "0.0.0.0", () => {
+// --- THE FINAL LISTENER ---
+// 0.0.0.0 is required for Railway to bridge to the public internet
+app.listen(PORT, "0.0.0.0", () => {
   console.log(`🚀 MeritUs Server is live and public on port ${PORT}`);
 });

@@ -9,7 +9,7 @@ import crypto from "crypto";
 import nodemailer from "nodemailer";
 import jwt from "jsonwebtoken";
 import { validatePassword } from "./src/utils/passwordValidator";
-import cors from "cors";
+
 
 dotenv.config();
 

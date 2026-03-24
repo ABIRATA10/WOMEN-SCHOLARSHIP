@@ -18,11 +18,6 @@
   },
   "dependencies": {
     "@capacitor/android": "^8.1.0",
-    
-  "resend": "^4.0.0",
-  "express": "...",
-  ...
-
     "@capacitor/cli": "^8.1.0",
     "@capacitor/core": "^8.1.0",
     "@capacitor/ios": "^8.1.0",

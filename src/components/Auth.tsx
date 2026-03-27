@@ -6,6 +6,51 @@ import { Logo } from './Logo';
 import { useLanguage } from '../contexts/LanguageContext';
 const API_URL = import.meta.env.VITE_API_URL || ''
 
+const COUNTRIES = [
+  { code: 'US', name: 'United States', dialCode: '+1' },
+  { code: 'IN', name: 'India', dialCode: '+91' },
+  { code: 'GB', name: 'United Kingdom', dialCode: '+44' },
+  { code: 'CA', name: 'Canada', dialCode: '+1' },
+  { code: 'AU', name: 'Australia', dialCode: '+61' },
+  { code: 'DE', name: 'Germany', dialCode: '+49' },
+  { code: 'FR', name: 'France', dialCode: '+33' },
+  { code: 'IT', name: 'Italy', dialCode: '+39' },
+  { code: 'ES', name: 'Spain', dialCode: '+34' },
+  { code: 'BR', name: 'Brazil', dialCode: '+55' },
+  { code: 'ZA', name: 'South Africa', dialCode: '+27' },
+  { code: 'NG', name: 'Nigeria', dialCode: '+234' },
+  { code: 'KE', name: 'Kenya', dialCode: '+254' },
+  { code: 'SG', name: 'Singapore', dialCode: '+65' },
+  { code: 'AE', name: 'United Arab Emirates', dialCode: '+971' },
+  { code: 'SA', name: 'Saudi Arabia', dialCode: '+966' },
+  { code: 'MX', name: 'Mexico', dialCode: '+52' },
+  { code: 'JP', name: 'Japan', dialCode: '+81' },
+  { code: 'CN', name: 'China', dialCode: '+86' },
+  { code: 'KR', name: 'South Korea', dialCode: '+82' },
+  { code: 'ID', name: 'Indonesia', dialCode: '+62' },
+  { code: 'PH', name: 'Philippines', dialCode: '+63' },
+  { code: 'VN', name: 'Vietnam', dialCode: '+84' },
+  { code: 'TH', name: 'Thailand', dialCode: '+66' },
+  { code: 'MY', name: 'Malaysia', dialCode: '+60' },
+  { code: 'PK', name: 'Pakistan', dialCode: '+92' },
+  { code: 'BD', name: 'Bangladesh', dialCode: '+880' },
+  { code: 'EG', name: 'Egypt', dialCode: '+20' },
+  { code: 'TR', name: 'Turkey', dialCode: '+90' },
+  { code: 'RU', name: 'Russia', dialCode: '+7' },
+  { code: 'UA', name: 'Ukraine', dialCode: '+380' },
+  { code: 'PL', name: 'Poland', dialCode: '+48' },
+  { code: 'NL', name: 'Netherlands', dialCode: '+31' },
+  { code: 'BE', name: 'Belgium', dialCode: '+32' },
+  { code: 'SE', name: 'Sweden', dialCode: '+46' },
+  { code: 'CH', name: 'Switzerland', dialCode: '+41' },
+  { code: 'AT', name: 'Austria', dialCode: '+43' },
+  { code: 'NZ', name: 'New Zealand', dialCode: '+64' },
+  { code: 'AR', name: 'Argentina', dialCode: '+54' },
+  { code: 'CO', name: 'Colombia', dialCode: '+57' },
+  { code: 'CL', name: 'Chile', dialCode: '+56' },
+  { code: 'PE', name: 'Peru', dialCode: '+51' },
+].sort((a, b) => a.name.localeCompare(b.name));
+
 interface AuthProps {
   onLogin: (user: User) => void;
 }
@@ -332,14 +377,33 @@ export const Auth: React.FC<AuthProps> = ({ onLogin }) => {
                     <label className={labelClasses}>Country</label>
                     <div className="relative group">
                       <Globe className="absolute left-4 top-1/2 -translate-y-1/2 text-slate-300 group-focus-within:text-blue-500 transition-colors" size={20} />
-                      <input
+                      <select
                         required
-                        type="text"
                         value={country}
-                        onChange={(e) => setCountry(e.target.value)}
-                        className={inputClasses}
-                        placeholder="e.g. United States"
-                      />
+                        onChange={(e) => {
+                          const selectedName = e.target.value;
+                          setCountry(selectedName);
+                          const selectedCountry = COUNTRIES.find(c => c.name === selectedName);
+                          if (selectedCountry) {
+                            const currentDialCode = COUNTRIES.find(c => phoneNumber.startsWith(c.dialCode))?.dialCode;
+                            if (!phoneNumber || (currentDialCode && phoneNumber.trim() === currentDialCode)) {
+                              setPhoneNumber(selectedCountry.dialCode + ' ');
+                            } else if (currentDialCode) {
+                              setPhoneNumber(phoneNumber.replace(currentDialCode, selectedCountry.dialCode));
+                            } else {
+                              setPhoneNumber(selectedCountry.dialCode + ' ' + phoneNumber);
+                            }
+                          }
+                        }}
+                        className={`${inputClasses} appearance-none cursor-pointer`}
+                      >
+                        <option value="" disabled>Select your country</option>
+                        {COUNTRIES.map(c => (
+                          <option key={c.code} value={c.name}>
+                            {c.name} ({c.dialCode})
+                          </option>
+                        ))}
+                      </select>
                     </div>
                   </div>
 

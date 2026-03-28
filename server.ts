@@ -2,8 +2,8 @@ import express from "express";
 import { createServer as createViteServer } from "vite";
 import { OAuth2Client } from "google-auth-library";
 import dotenv from "dotenv";
-import Database from "better-sqlite3";
-import path from "path";
+import pkg from "pg";
+const { Pool } = pkg;
 import bcrypt from "bcryptjs";
 import crypto from "crypto";
 import nodemailer from "nodemailer";
@@ -17,24 +17,26 @@ const JWT_SECRET = process.env.JWT_SECRET || 'your-secret-key-for-jwt';
 const app = express();
 const PORT = Number(process.env.PORT) || 3000;
 
+// ─── CORS ─────────────────────────────────────────────────────────────────────
 app.use((req, res, next) => {
   const origin = req.headers.origin;
-  if (origin) {
-    res.setHeader('Access-Control-Allow-Origin', origin);
-  } else {
-    res.setHeader('Access-Control-Allow-Origin', '*');
+  if (
+    !origin ||
+    origin.endsWith('.vercel.app') ||
+    origin.startsWith('http://localhost')
+  ) {
+    res.setHeader('Access-Control-Allow-Origin', origin || '*');
   }
   res.setHeader('Access-Control-Allow-Methods', 'GET, POST, PUT, DELETE, OPTIONS, PATCH');
-  res.setHeader('Access-Control-Allow-Headers', 'Origin, X-Requested-With, Content-Type, Accept, Authorization');
+  res.setHeader('Access-Control-Allow-Headers', 'Origin, X-Requested-With, Content-Type, Accept, Authorization, x-user-email');
   res.setHeader('Access-Control-Allow-Credentials', 'true');
-  
-  if (req.method === 'OPTIONS') {
-    return res.status(200).end();
-  }
+  if (req.method === 'OPTIONS') return res.status(200).end();
   next();
 });
+
 app.use(express.json());
 
+// ─── EMAIL ────────────────────────────────────────────────────────────────────
 const transporter = nodemailer.createTransport({
   service: 'gmail',
   auth: {
@@ -51,137 +53,79 @@ const sendEmail = async (to: string, subject: string, text: string) => {
   try {
     await transporter.sendMail({
       from: `"MeritUs" <${process.env.EMAIL_USER}>`,
-      to,
-      subject,
-      text
+      to, subject, text
     });
   } catch (error) {
     console.error("Failed to send email:", error);
   }
 };
 
-// Database setup
-const dbPath = process.env.DATABASE_PATH || 'database.sqlite';
-let db: Database.Database | null = null;
+// ─── POSTGRESQL DATABASE ──────────────────────────────────────────────────────
+const pool = new Pool({
+  connectionString: process.env.DATABASE_URL,
+  ssl: { rejectUnauthorized: false }
+});
 
-function getDb() {
-  if (!db) {
-    try {
-      db = new Database(dbPath);
-    } catch (error) {
-      console.error("Failed to initialize database:", error);
-      throw new Error("Database connection error");
-    }
-  }
-  return db;
-}
-
-const pool = {
-  query: async (sql: string, params: any[] = []) => {
-    const sqliteSql = sql.replace(/\$(\d+)/g, '?');
-    const isSelect = sqliteSql.trim().toUpperCase().startsWith('SELECT');
-    const safeParams = params.map(p => p === undefined ? null : p);
-    try {
-      const database = getDb();
-      if (isSelect) {
-        const rows = database.prepare(sqliteSql).all(...safeParams);
-        return { rows };
-      } else {
-        const info = database.prepare(sqliteSql).run(...safeParams);
-        return { rows: [], rowCount: info.changes };
-      }
-    } catch (error: any) {
-      console.error('SQL Error:', error);
-      if (error.code === 'SQLITE_CORRUPT') {
-        console.error('Database is corrupted. Attempting to delete and recreate...');
-        if (db) {
-          try {
-            db.close();
-          } catch (closeError) {
-            console.error('Failed to close corrupted database:', closeError);
-          }
-          db = null;
-        }
-        try {
-          const fs = await import('fs');
-          if (fs.existsSync(dbPath)) {
-            fs.unlinkSync(dbPath);
-            console.log('Corrupted database deleted.');
-          }
-          // Re-initialize the database
-          await initDb();
-          console.log('Database recreated successfully.');
-        } catch (fsError) {
-          console.error('Failed to delete corrupted database:', fsError);
-        }
-      }
-      throw error;
-    }
+const query = async (sql: string, params: any[] = []) => {
+  const client = await pool.connect();
+  try {
+    const result = await client.query(sql, params);
+    return { rows: result.rows, rowCount: result.rowCount };
+  } finally {
+    client.release();
   }
 };
 
 const initDb = async () => {
   try {
-    await pool.query(`
+    await query(`
       CREATE TABLE IF NOT EXISTS users (
         id TEXT PRIMARY KEY,
         email TEXT UNIQUE,
         password TEXT,
-        fullName TEXT,
-        phoneNumber TEXT,
+        fullname TEXT,
+        phonenumber TEXT,
         country TEXT,
-        resetCode TEXT,
-        resetCodeExpires BIGINT,
+        resetcode TEXT,
+        resetcodeexpires BIGINT,
         password_hash TEXT,
         auth_provider TEXT DEFAULT 'email'
       )
     `);
 
-    // Add columns if they don't exist (for existing databases)
-    try {
-      await pool.query("ALTER TABLE users ADD COLUMN country TEXT");
-    } catch (e) {
-      // Column might already exist
-    }
-    try {
-      await pool.query("ALTER TABLE users ADD COLUMN phoneNumber TEXT");
-    } catch (e) {
-      // Column might already exist
-    }
-
-    await pool.query(`
+    await query(`
       CREATE TABLE IF NOT EXISTS user_profiles (
         user_id TEXT PRIMARY KEY,
-        fullName TEXT,
-        profileImageUrl TEXT,
-        phoneNumber TEXT,
+        fullname TEXT,
+        profileimageurl TEXT,
+        phonenumber TEXT,
         age INTEGER,
         gender TEXT,
-        educationLevel TEXT,
-        yearOfStudy TEXT,
+        educationlevel TEXT,
+        yearofstudy TEXT,
         institution TEXT,
-        fieldOfStudy TEXT,
+        fieldofstudy TEXT,
         gpa TEXT,
         country TEXT,
         state TEXT,
         pincode TEXT,
         address TEXT,
         caste TEXT,
-        incomeBracket TEXT,
+        incomebracket TEXT,
         background TEXT,
-        careerGoals TEXT,
+        careergoals TEXT,
         extracurriculars TEXT,
         awards TEXT,
-        profileDeadline TEXT,
-        languagesSpoken TEXT,
-        volunteerExperience TEXT,
+        profiledeadline TEXT,
+        languagesspoken TEXT,
+        volunteerexperience TEXT,
         profile_completion_percentage INTEGER DEFAULT 0,
         last_updated TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
         FOREIGN KEY(user_id) REFERENCES users(id)
       )
     `);
 
-    await pool.query(`
+    await query(`
       CREATE TABLE IF NOT EXISTS scholarships (
         id TEXT PRIMARY KEY,
         name TEXT,
@@ -201,7 +145,7 @@ const initDb = async () => {
       )
     `);
 
-    await pool.query(`
+    await query(`
       CREATE TABLE IF NOT EXISTS bookmarks (
         user_id TEXT,
         scholarship_id TEXT,
@@ -212,7 +156,7 @@ const initDb = async () => {
       )
     `);
 
-    await pool.query(`
+    await query(`
       CREATE TABLE IF NOT EXISTS applications (
         id TEXT PRIMARY KEY,
         user_id TEXT,
@@ -224,7 +168,7 @@ const initDb = async () => {
       )
     `);
 
-    await pool.query(`
+    await query(`
       CREATE TABLE IF NOT EXISTS notices (
         id TEXT PRIMARY KEY,
         title TEXT,
@@ -233,7 +177,7 @@ const initDb = async () => {
       )
     `);
 
-    await pool.query(`
+    await query(`
       CREATE TABLE IF NOT EXISTS password_reset_tokens (
         id TEXT PRIMARY KEY,
         user_id TEXT,
@@ -245,7 +189,7 @@ const initDb = async () => {
       )
     `);
 
-    await pool.query(`
+    await query(`
       CREATE TABLE IF NOT EXISTS verification_codes (
         email TEXT PRIMARY KEY,
         code TEXT,
@@ -253,17 +197,18 @@ const initDb = async () => {
       )
     `);
 
-    await pool.query(`
+    await query(`
       CREATE TABLE IF NOT EXISTS reminders (
         id TEXT PRIMARY KEY,
-        userId TEXT,
-        scholarshipId TEXT,
-        scholarshipTitle TEXT,
-        reminderTime TEXT,
+        userid TEXT,
+        scholarshipid TEXT,
+        scholarshiptitle TEXT,
+        remindertime TEXT,
         triggered INTEGER DEFAULT 0,
-        FOREIGN KEY(userId) REFERENCES users(id)
+        FOREIGN KEY(userid) REFERENCES users(id)
       )
     `);
+
     console.log("Database initialized successfully");
   } catch (error) {
     console.error("Database initialization failed:", error);
@@ -272,6 +217,7 @@ const initDb = async () => {
 
 initDb();
 
+// ─── GOOGLE OAUTH ─────────────────────────────────────────────────────────────
 const client = new OAuth2Client(
   process.env.GOOGLE_CLIENT_ID,
   process.env.GOOGLE_CLIENT_SECRET
@@ -282,34 +228,30 @@ const getRedirectUri = () => {
   return `${baseUrl}/auth/google/callback`;
 };
 
-// Admin middleware
+// ─── ADMIN MIDDLEWARE ─────────────────────────────────────────────────────────
 const isAdmin = (req: express.Request, res: express.Response, next: express.NextFunction) => {
   const adminEmails = (process.env.ADMIN_EMAILS || "").split(",").map(e => e.trim());
-  const userEmail = req.headers['x-user-email'] as string; // Simple auth for demo, in real app use session/token
-  
+  const userEmail = req.headers['x-user-email'] as string;
   if (!userEmail || !adminEmails.includes(userEmail)) {
     return res.status(403).json({ error: "Forbidden: Admin access required" });
   }
   next();
 };
 
-// Admin routes
+// ─── ADMIN ROUTES ─────────────────────────────────────────────────────────────
 app.get("/api/admin/dashboard", isAdmin, async (req, res) => {
   try {
-    const totalStudents = (await pool.query("SELECT COUNT(*) as count FROM users")).rows[0] as { count: number };
-    const totalScholarships = (await pool.query("SELECT COUNT(*) as count FROM scholarships")).rows[0] as { count: number };
-    const totalBookmarks = (await pool.query("SELECT COUNT(*) as count FROM bookmarks")).rows[0] as { count: number };
-    const totalApplications = (await pool.query("SELECT COUNT(*) as count FROM applications")).rows[0] as { count: number };
-    
-    const recentSignups = (await pool.query("SELECT fullName as name, email, 'N/A' as joined_date FROM users ORDER BY id DESC LIMIT 5")).rows;
-    
-    // Top 5 most matched scholarships (using bookmarks as proxy for matches for now)
-    const topScholarships = (await pool.query(`
-      SELECT s.name, COUNT(b.scholarship_id) as match_count 
-      FROM scholarships s 
-      LEFT JOIN bookmarks b ON s.id = b.scholarship_id 
-      GROUP BY s.id 
-      ORDER BY match_count DESC 
+    const totalStudents = (await query("SELECT COUNT(*) as count FROM users")).rows[0] as any;
+    const totalScholarships = (await query("SELECT COUNT(*) as count FROM scholarships")).rows[0] as any;
+    const totalBookmarks = (await query("SELECT COUNT(*) as count FROM bookmarks")).rows[0] as any;
+    const totalApplications = (await query("SELECT COUNT(*) as count FROM applications")).rows[0] as any;
+    const recentSignups = (await query("SELECT fullname as name, email, 'N/A' as joined_date FROM users ORDER BY id DESC LIMIT 5")).rows;
+    const topScholarships = (await query(`
+      SELECT s.name, COUNT(b.scholarship_id) as match_count
+      FROM scholarships s
+      LEFT JOIN bookmarks b ON s.id = b.scholarship_id
+      GROUP BY s.id, s.name
+      ORDER BY match_count DESC
       LIMIT 5
     `)).rows;
 
@@ -328,7 +270,7 @@ app.get("/api/admin/dashboard", isAdmin, async (req, res) => {
 
 app.get("/api/admin/scholarships", isAdmin, async (req, res) => {
   try {
-    const scholarships = (await pool.query("SELECT * FROM scholarships ORDER BY name ASC")).rows;
+    const scholarships = (await query("SELECT * FROM scholarships ORDER BY name ASC")).rows;
     res.json(scholarships);
   } catch (error) {
     res.status(500).json({ error: "Failed to fetch scholarships" });
@@ -337,14 +279,14 @@ app.get("/api/admin/scholarships", isAdmin, async (req, res) => {
 
 app.post("/api/admin/scholarships", isAdmin, async (req, res) => {
   const s = req.body;
-  const id = Math.random().toString(36).substr(2, 9);
+  const id = crypto.randomUUID();
   try {
-    await pool.query(`
+    await query(`
       INSERT INTO scholarships (
-        id, name, provider, amount_per_year, eligible_categories, eligible_states, 
-        eligible_courses, max_family_income, gender, min_percentage, disability_required, 
+        id, name, provider, amount_per_year, eligible_categories, eligible_states,
+        eligible_courses, max_family_income, gender, min_percentage, disability_required,
         is_active, application_portal_url, deadline_month, description
-      ) VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12, $13, $14, $15)
+      ) VALUES ($1,$2,$3,$4,$5,$6,$7,$8,$9,$10,$11,$12,$13,$14,$15)
     `, [
       id, s.name, s.provider, s.amount_per_year, s.eligible_categories, s.eligible_states,
       s.eligible_courses, s.max_family_income, s.gender, s.min_percentage, s.disability_required ? 1 : 0,
@@ -359,12 +301,12 @@ app.post("/api/admin/scholarships", isAdmin, async (req, res) => {
 app.put("/api/admin/scholarships/:id", isAdmin, async (req, res) => {
   const s = req.body;
   try {
-    await pool.query(`
-      UPDATE scholarships SET 
-        name = $1, provider = $2, amount_per_year = $3, eligible_categories = $4, eligible_states = $5, 
-        eligible_courses = $6, max_family_income = $7, gender = $8, min_percentage = $9, disability_required = $10, 
-        is_active = $11, application_portal_url = $12, deadline_month = $13, description = $14
-      WHERE id = $15
+    await query(`
+      UPDATE scholarships SET
+        name=$1, provider=$2, amount_per_year=$3, eligible_categories=$4, eligible_states=$5,
+        eligible_courses=$6, max_family_income=$7, gender=$8, min_percentage=$9, disability_required=$10,
+        is_active=$11, application_portal_url=$12, deadline_month=$13, description=$14
+      WHERE id=$15
     `, [
       s.name, s.provider, s.amount_per_year, s.eligible_categories, s.eligible_states,
       s.eligible_courses, s.max_family_income, s.gender, s.min_percentage, s.disability_required ? 1 : 0,
@@ -378,7 +320,7 @@ app.put("/api/admin/scholarships/:id", isAdmin, async (req, res) => {
 
 app.delete("/api/admin/scholarships/:id", isAdmin, async (req, res) => {
   try {
-    await pool.query("DELETE FROM scholarships WHERE id = $1", [req.params.id]);
+    await query("DELETE FROM scholarships WHERE id=$1", [req.params.id]);
     res.json({ success: true });
   } catch (error) {
     res.status(500).json({ error: "Failed to delete scholarship" });
@@ -387,8 +329,8 @@ app.delete("/api/admin/scholarships/:id", isAdmin, async (req, res) => {
 
 app.get("/api/admin/students", isAdmin, async (req, res) => {
   try {
-    const students = (await pool.query(`
-      SELECT u.id, u.fullName as name, u.email, 
+    const students = (await query(`
+      SELECT u.id, u.fullname as name, u.email,
              COALESCE(p.profile_completion_percentage, 0) as completion,
              'N/A' as joined_date, 'N/A' as last_login
       FROM users u
@@ -402,8 +344,8 @@ app.get("/api/admin/students", isAdmin, async (req, res) => {
 
 app.delete("/api/admin/students/:id", isAdmin, async (req, res) => {
   try {
-    await pool.query("DELETE FROM user_profiles WHERE user_id = $1", [req.params.id]);
-    await pool.query("DELETE FROM users WHERE id = $1", [req.params.id]);
+    await query("DELETE FROM user_profiles WHERE user_id=$1", [req.params.id]);
+    await query("DELETE FROM users WHERE id=$1", [req.params.id]);
     res.json({ success: true });
   } catch (error) {
     res.status(500).json({ error: "Failed to delete student" });
@@ -412,17 +354,15 @@ app.delete("/api/admin/students/:id", isAdmin, async (req, res) => {
 
 app.get("/api/admin/analytics", isAdmin, async (req, res) => {
   try {
-    const byCategory = (await pool.query("SELECT provider as name, COUNT(*) as value FROM scholarships GROUP BY provider")).rows;
-    const topMatched = (await pool.query(`
-      SELECT s.name, COUNT(b.scholarship_id) as value 
-      FROM scholarships s 
-      LEFT JOIN bookmarks b ON s.id = b.scholarship_id 
-      GROUP BY s.id 
-      ORDER BY value DESC 
-      LIMIT 10
+    const byCategory = (await query("SELECT provider as name, COUNT(*) as value FROM scholarships GROUP BY provider")).rows;
+    const topMatched = (await query(`
+      SELECT s.name, COUNT(b.scholarship_id) as value
+      FROM scholarships s
+      LEFT JOIN bookmarks b ON s.id = b.scholarship_id
+      GROUP BY s.id, s.name
+      ORDER BY value DESC LIMIT 10
     `)).rows;
-    const userDistribution = (await pool.query("SELECT state as name, COUNT(*) as value FROM user_profiles GROUP BY state")).rows;
-    
+    const userDistribution = (await query("SELECT state as name, COUNT(*) as value FROM user_profiles GROUP BY state")).rows;
     res.json({ byCategory, topMatched, userDistribution });
   } catch (error) {
     res.status(500).json({ error: "Failed to fetch analytics" });
@@ -431,7 +371,7 @@ app.get("/api/admin/analytics", isAdmin, async (req, res) => {
 
 app.get("/api/admin/notices", isAdmin, async (req, res) => {
   try {
-    const notices = (await pool.query("SELECT * FROM notices ORDER BY date DESC")).rows;
+    const notices = (await query("SELECT * FROM notices ORDER BY date DESC")).rows;
     res.json(notices);
   } catch (error) {
     res.status(500).json({ error: "Failed to fetch notices" });
@@ -440,22 +380,21 @@ app.get("/api/admin/notices", isAdmin, async (req, res) => {
 
 app.post("/api/admin/notices", isAdmin, async (req, res) => {
   const { title, body } = req.body;
-  const id = Math.random().toString(36).substr(2, 9);
+  const id = crypto.randomUUID();
   try {
-    await pool.query("INSERT INTO notices (id, title, body) VALUES ($1, $2, $3)", [id, title, body]);
+    await query("INSERT INTO notices (id, title, body) VALUES ($1,$2,$3)", [id, title, body]);
     res.json({ id, title, body });
   } catch (error) {
     res.status(500).json({ error: "Failed to add notice" });
   }
 });
 
-// Profile routes
+// ─── PROFILE ROUTES ───────────────────────────────────────────────────────────
 app.get("/api/profile/:userId", async (req, res) => {
   try {
-    const profile = (await pool.query("SELECT * FROM user_profiles WHERE user_id = $1", [req.params.userId])).rows[0];
+    const profile = (await query("SELECT * FROM user_profiles WHERE user_id=$1", [req.params.userId])).rows[0];
     res.json(profile || null);
   } catch (error) {
-    console.error("Failed to fetch profile:", error);
     res.status(500).json({ error: "Failed to fetch profile" });
   }
 });
@@ -463,22 +402,28 @@ app.get("/api/profile/:userId", async (req, res) => {
 app.post("/api/profile/:userId", async (req, res) => {
   const p = req.body;
   try {
-    await pool.query(`
+    await query(`
       INSERT INTO user_profiles (
-        user_id, fullName, profileImageUrl, phoneNumber, age, gender, educationLevel, yearOfStudy,
-        institution, fieldOfStudy, gpa, country, state, pincode, address, caste, incomeBracket,
-        background, careerGoals, extracurriculars, awards, profileDeadline, languagesSpoken, volunteerExperience,
-        profile_completion_percentage, last_updated
-      ) VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12, $13, $14, $15, $16, $17, $18, $19, $20, $21, $22, $23, $24, $25, CURRENT_TIMESTAMP)
+        user_id, fullname, profileimageurl, phonenumber, age, gender, educationlevel, yearofstudy,
+        institution, fieldofstudy, gpa, country, state, pincode, address, caste, incomebracket,
+        background, careergoals, extracurriculars, awards, profiledeadline, languagesspoken,
+        volunteerexperience, profile_completion_percentage, last_updated
+      ) VALUES ($1,$2,$3,$4,$5,$6,$7,$8,$9,$10,$11,$12,$13,$14,$15,$16,$17,$18,$19,$20,$21,$22,$23,$24,$25,CURRENT_TIMESTAMP)
       ON CONFLICT (user_id) DO UPDATE SET
-        fullName = EXCLUDED.fullName, profileImageUrl = EXCLUDED.profileImageUrl, phoneNumber = EXCLUDED.phoneNumber, age = EXCLUDED.age, gender = EXCLUDED.gender, educationLevel = EXCLUDED.educationLevel, yearOfStudy = EXCLUDED.yearOfStudy,
-        institution = EXCLUDED.institution, fieldOfStudy = EXCLUDED.fieldOfStudy, gpa = EXCLUDED.gpa, country = EXCLUDED.country, state = EXCLUDED.state, pincode = EXCLUDED.pincode, address = EXCLUDED.address, caste = EXCLUDED.caste, incomeBracket = EXCLUDED.incomeBracket,
-        background = EXCLUDED.background, careerGoals = EXCLUDED.careerGoals, extracurriculars = EXCLUDED.extracurriculars, awards = EXCLUDED.awards, profileDeadline = EXCLUDED.profileDeadline, languagesSpoken = EXCLUDED.languagesSpoken, volunteerExperience = EXCLUDED.volunteerExperience,
-        profile_completion_percentage = EXCLUDED.profile_completion_percentage, last_updated = CURRENT_TIMESTAMP
+        fullname=EXCLUDED.fullname, profileimageurl=EXCLUDED.profileimageurl, phonenumber=EXCLUDED.phonenumber,
+        age=EXCLUDED.age, gender=EXCLUDED.gender, educationlevel=EXCLUDED.educationlevel, yearofstudy=EXCLUDED.yearofstudy,
+        institution=EXCLUDED.institution, fieldofstudy=EXCLUDED.fieldofstudy, gpa=EXCLUDED.gpa,
+        country=EXCLUDED.country, state=EXCLUDED.state, pincode=EXCLUDED.pincode, address=EXCLUDED.address,
+        caste=EXCLUDED.caste, incomebracket=EXCLUDED.incomebracket, background=EXCLUDED.background,
+        careergoals=EXCLUDED.careergoals, extracurriculars=EXCLUDED.extracurriculars, awards=EXCLUDED.awards,
+        profiledeadline=EXCLUDED.profiledeadline, languagesspoken=EXCLUDED.languagesspoken,
+        volunteerexperience=EXCLUDED.volunteerexperience,
+        profile_completion_percentage=EXCLUDED.profile_completion_percentage, last_updated=CURRENT_TIMESTAMP
     `, [
-      req.params.userId, p.fullName, p.profileImageUrl, p.phoneNumber, p.age, p.gender, p.educationLevel, p.yearOfStudy,
-      p.institution, p.fieldOfStudy, p.gpa, p.country, p.state, p.pincode, p.address, p.caste, p.incomeBracket,
-      p.background, p.careerGoals, p.extracurriculars, p.awards, p.profileDeadline, p.languagesSpoken, p.volunteerExperience,
+      req.params.userId, p.fullName, p.profileImageUrl, p.phoneNumber, p.age, p.gender,
+      p.educationLevel, p.yearOfStudy, p.institution, p.fieldOfStudy, p.gpa, p.country,
+      p.state, p.pincode, p.address, p.caste, p.incomeBracket, p.background, p.careerGoals,
+      p.extracurriculars, p.awards, p.profileDeadline, p.languagesSpoken, p.volunteerExperience,
       p.profile_completion_percentage || 0
     ]);
     res.json({ success: true });
@@ -488,79 +433,66 @@ app.post("/api/profile/:userId", async (req, res) => {
   }
 });
 
-// Notices for users
+// ─── PUBLIC ROUTES ────────────────────────────────────────────────────────────
 app.get("/api/scholarships", async (req, res) => {
   try {
-    const scholarships = (await pool.query("SELECT * FROM scholarships")).rows;
+    const scholarships = (await query("SELECT * FROM scholarships")).rows;
     res.json(scholarships);
   } catch (error) {
-    console.error("Failed to fetch scholarships:", error);
     res.status(500).json({ error: "Failed to fetch scholarships" });
   }
 });
 
 app.get("/api/notices", async (req, res) => {
   try {
-    const notices = (await pool.query("SELECT * FROM notices ORDER BY date DESC LIMIT 5")).rows;
+    const notices = (await query("SELECT * FROM notices ORDER BY date DESC LIMIT 5")).rows;
     res.json(notices);
   } catch (error) {
     res.status(500).json({ error: "Failed to fetch notices" });
   }
 });
 
-// API routes
 app.post("/api/notifications/email", async (req, res) => {
   const { email, subject, text } = req.body;
-  if (!email || !subject || !text) {
-    return res.status(400).json({ error: "Missing required fields" });
-  }
+  if (!email || !subject || !text) return res.status(400).json({ error: "Missing required fields" });
   try {
     await sendEmail(email, subject, text);
     res.json({ success: true });
   } catch (error) {
-    console.error("Failed to send email:", error);
     res.status(500).json({ error: "Failed to send email" });
   }
 });
 
+// ─── AUTH ROUTES ──────────────────────────────────────────────────────────────
 app.post("/api/auth/send-verification", async (req, res) => {
   const { email } = req.body;
-  
   try {
-    // Check if user already exists
-    const existingUser = (await pool.query("SELECT * FROM users WHERE email = $1", [email])).rows[0];
-    if (existingUser) {
-      return res.status(400).json({ error: "User already exists" });
-    }
+    const existingUser = (await query("SELECT id FROM users WHERE email=$1", [email])).rows[0];
+    if (existingUser) return res.status(400).json({ error: "User already exists" });
 
     const code = Math.floor(100000 + Math.random() * 900000).toString();
-    const expires = Date.now() + 15 * 60 * 1000; // 15 minutes
-    
-    await pool.query(`
-      INSERT INTO verification_codes (email, code, expires) VALUES ($1, $2, $3)
-      ON CONFLICT (email) DO UPDATE SET code = EXCLUDED.code, expires = EXCLUDED.expires
+    const expires = Date.now() + 15 * 60 * 1000;
+
+    await query(`
+      INSERT INTO verification_codes (email, code, expires) VALUES ($1,$2,$3)
+      ON CONFLICT (email) DO UPDATE SET code=EXCLUDED.code, expires=EXCLUDED.expires
     `, [email, code, expires]);
-    
-    await sendEmail(
-      email,
-      "Your MeritUs Verification Code",
-      `Your verification code is: ${code}\n\nThis code will expire in 15 minutes.`
-    );
-    
+
+    await sendEmail(email, "Your MeritUs Verification Code",
+      `Your verification code is: ${code}\n\nThis code will expire in 15 minutes.`);
+
     res.json({ message: "Verification code sent", demoCode: code });
   } catch (error) {
     console.error("Error in send-verification:", error);
-    res.status(500).json({ error: "Database connection error or internal server error" });
+    res.status(500).json({ error: "Internal server error" });
   }
 });
 
 app.post("/api/auth/signup", async (req, res) => {
   const { email, password, fullName, country, phoneNumber, code } = req.body;
-  
   try {
-    // Verify code
-    const verification = (await pool.query("SELECT * FROM verification_codes WHERE email = $1", [email])).rows[0] as any;
-    if (!verification || verification.code !== code || verification.expires < Date.now()) {
+    const verification = (await query("SELECT * FROM verification_codes WHERE email=$1", [email])).rows[0] as any;
+    if (!verification || verification.code !== code || Number(verification.expires) < Date.now()) {
       return res.status(400).json({ error: "Invalid or expired verification code" });
     }
 
@@ -569,26 +501,28 @@ app.post("/api/auth/signup", async (req, res) => {
       return res.status(400).json({ error: "Password does not meet requirements", details: passValidation.errors });
     }
 
-    const id = Math.random().toString(36).substr(2, 9);
+    const id = crypto.randomUUID();
     const password_hash = await bcrypt.hash(password, 12);
-    
-    await pool.query("INSERT INTO users (id, email, password_hash, auth_provider, fullName, country, phoneNumber) VALUES ($1, $2, $3, $4, $5, $6, $7)", 
-      [id, email, password_hash, 'email', fullName, country, phoneNumber]);
-    
-    // Clean up verification code
-    await pool.query("DELETE FROM verification_codes WHERE email = $1", [email]);
-    
-    // Send Welcome Email
-    sendEmail(email, "Welcome to MeritUs!", `Hi ${fullName},\n\nYour account has been successfully created in the MeritUs App. Get ready to find the best scholarships tailored for you!\n\nBest,\nThe MeritUs Team`).catch(console.error);
+
+    await query(
+      "INSERT INTO users (id, email, password_hash, auth_provider, fullname, country, phonenumber) VALUES ($1,$2,$3,$4,$5,$6,$7)",
+      [id, email, password_hash, 'email', fullName, country, phoneNumber]
+    );
+
+    await query("DELETE FROM verification_codes WHERE email=$1", [email]);
+
+    sendEmail(email, "Welcome to MeritUs!",
+      `Hi ${fullName},\n\nYour account has been created. Get ready to find the best scholarships!\n\nBest,\nThe MeritUs Team`
+    ).catch(console.error);
 
     const token = jwt.sign({ id, email }, JWT_SECRET, { expiresIn: '7d' });
     res.json({ id, email, fullName, country, phoneNumber, token });
   } catch (error: any) {
     console.error("Error in signup:", error);
-    if (error.message && error.message.includes("unique constraint")) {
+    if (error.code === '23505') {
       res.status(400).json({ error: "User already exists" });
     } else {
-      res.status(500).json({ error: "Failed to create user due to a database error" });
+      res.status(500).json({ error: "Failed to create user" });
     }
   }
 });
@@ -596,64 +530,36 @@ app.post("/api/auth/signup", async (req, res) => {
 app.post("/api/auth/login", async (req, res) => {
   const { email, password } = req.body;
   try {
-    const user = (await pool.query("SELECT * FROM users WHERE email = $1", [email])).rows[0] as any;
-    
-    if (user && user.password_hash) {
+    const user = (await query("SELECT * FROM users WHERE email=$1", [email])).rows[0] as any;
+
+    if (user?.password_hash) {
       const match = await bcrypt.compare(password, user.password_hash);
       if (match) {
         const token = jwt.sign({ id: user.id, email: user.email }, JWT_SECRET, { expiresIn: '7d' });
-        return res.json({
-          id: user.id,
-          email: user.email,
-          fullName: user.fullname,
-          phoneNumber: user.phonenumber,
-          country: user.country,
-          token
-        });
+        return res.json({ id: user.id, email: user.email, fullName: user.fullname, phoneNumber: user.phonenumber, country: user.country, token });
       }
-    } else if (user && user.password) {
-      // Legacy plain text fallback (optional, but good for existing demo users)
-      if (password === user.password) {
-        const token = jwt.sign({ id: user.id, email: user.email }, JWT_SECRET, { expiresIn: '7d' });
-        return res.json({
-          id: user.id,
-          email: user.email,
-          fullName: user.fullname,
-          phoneNumber: user.phonenumber,
-          country: user.country,
-          token
-        });
-      }
+    } else if (user?.password && password === user.password) {
+      const token = jwt.sign({ id: user.id, email: user.email }, JWT_SECRET, { expiresIn: '7d' });
+      return res.json({ id: user.id, email: user.email, fullName: user.fullname, phoneNumber: user.phonenumber, country: user.country, token });
     }
-    
+
     res.status(401).json({ error: "Invalid email or password" });
   } catch (error) {
     console.error("Error in login:", error);
-    res.status(500).json({ error: "Database connection error or internal server error" });
+    res.status(500).json({ error: "Internal server error" });
   }
 });
 
 app.get("/api/auth/me", async (req, res) => {
   const authHeader = req.headers.authorization;
-  if (!authHeader || !authHeader.startsWith('Bearer ')) {
-    return res.status(401).json({ error: "Missing or invalid token" });
-  }
+  if (!authHeader?.startsWith('Bearer ')) return res.status(401).json({ error: "Missing or invalid token" });
 
   const token = authHeader.split(' ')[1];
   try {
-    const decoded = jwt.verify(token, JWT_SECRET) as { id: string, email: string };
-    const user = (await pool.query("SELECT * FROM users WHERE id = $1", [decoded.id])).rows[0] as any;
-    
-    if (!user) {
-      return res.status(404).json({ error: "User not found" });
-    }
-
-    res.json({
-      id: user.id,
-      email: user.email,
-      fullName: user.fullname,
-      phoneNumber: user.phonenumber
-    });
+    const decoded = jwt.verify(token, JWT_SECRET) as { id: string; email: string };
+    const user = (await query("SELECT * FROM users WHERE id=$1", [decoded.id])).rows[0] as any;
+    if (!user) return res.status(404).json({ error: "User not found" });
+    res.json({ id: user.id, email: user.email, fullName: user.fullname, phoneNumber: user.phonenumber });
   } catch (error) {
     res.status(401).json({ error: "Invalid or expired token" });
   }
@@ -662,198 +568,152 @@ app.get("/api/auth/me", async (req, res) => {
 app.post("/api/auth/forgot-password", async (req, res) => {
   const { email } = req.body;
   try {
-    const user = (await pool.query("SELECT * FROM users WHERE email = $1", [email])).rows[0] as any;
-    
-    if (user) {
-      const code = Math.floor(100000 + Math.random() * 900000).toString();
-      const expires = Date.now() + 15 * 60 * 1000; // 15 minutes
-      const id = Math.random().toString(36).substr(2, 9);
-      
-      await pool.query("INSERT INTO password_reset_tokens (id, user_id, token, expires_at) VALUES ($1, $2, $3, $4)", [id, user.id, code, expires]);
-      
-      await sendEmail(
-        email,
-        "Reset Your MeritUs Password",
-        `You requested a password reset. Your 6-digit verification code is:\n\n${code}\n\nThis code will expire in 15 minutes.`
-      );
-      
-      res.json({ message: "Reset code sent", demoCode: code }); // Sending demoCode for easier testing in this environment
-    } else {
-      res.status(404).json({ error: "User not found" });
-    }
+    const user = (await query("SELECT * FROM users WHERE email=$1", [email])).rows[0] as any;
+    if (!user) return res.status(404).json({ error: "User not found" });
+
+    const code = Math.floor(100000 + Math.random() * 900000).toString();
+    const expires = Date.now() + 15 * 60 * 1000;
+    const id = crypto.randomUUID();
+
+    await query("INSERT INTO password_reset_tokens (id, user_id, token, expires_at) VALUES ($1,$2,$3,$4)",
+      [id, user.id, code, expires]);
+
+    await sendEmail(email, "Reset Your MeritUs Password",
+      `Your 6-digit reset code is:\n\n${code}\n\nExpires in 15 minutes.`);
+
+    res.json({ message: "Reset code sent", demoCode: code });
   } catch (error) {
     console.error("Error in forgot-password:", error);
-    res.status(500).json({ error: "Database connection error or internal server error" });
+    res.status(500).json({ error: "Internal server error" });
   }
 });
 
 app.post("/api/auth/verify-reset-code", async (req, res) => {
   const { email, code } = req.body;
-  
   try {
-    const user = (await pool.query("SELECT * FROM users WHERE email = $1", [email])).rows[0] as any;
-    if (!user) {
-      return res.status(404).json({ error: "User not found" });
-    }
+    const user = (await query("SELECT * FROM users WHERE email=$1", [email])).rows[0] as any;
+    if (!user) return res.status(404).json({ error: "User not found" });
 
-    const resetRecord = (await pool.query("SELECT * FROM password_reset_tokens WHERE user_id = $1 AND token = $2 AND used = 0 AND expires_at > $3", [user.id, code, Date.now()])).rows[0] as any;
-    
-    if (resetRecord) {
-      res.json({ message: "Code verified successfully" });
-    } else {
-      res.status(400).json({ error: "Invalid or expired reset code" });
-    }
+    const resetRecord = (await query(
+      "SELECT * FROM password_reset_tokens WHERE user_id=$1 AND token=$2 AND used=0 AND expires_at>$3",
+      [user.id, code, Date.now()]
+    )).rows[0];
+
+    if (resetRecord) res.json({ message: "Code verified successfully" });
+    else res.status(400).json({ error: "Invalid or expired reset code" });
   } catch (error) {
-    console.error("Error in verify-reset-code:", error);
-    res.status(500).json({ error: "Database connection error or internal server error" });
+    res.status(500).json({ error: "Internal server error" });
   }
 });
 
 app.post("/api/auth/reset-password", async (req, res) => {
   const { email, code, newPassword } = req.body;
-  
   try {
-    const user = (await pool.query("SELECT * FROM users WHERE email = $1", [email])).rows[0] as any;
-    if (!user) {
-      return res.status(404).json({ error: "User not found" });
-    }
+    const user = (await query("SELECT * FROM users WHERE email=$1", [email])).rows[0] as any;
+    if (!user) return res.status(404).json({ error: "User not found" });
 
-    const resetRecord = (await pool.query("SELECT * FROM password_reset_tokens WHERE user_id = $1 AND token = $2 AND used = 0 AND expires_at > $3", [user.id, code, Date.now()])).rows[0] as any;
-    
-    if (resetRecord) {
-      const passValidation = validatePassword(newPassword);
-      if (!passValidation.valid) {
-        return res.status(400).json({ error: "Password does not meet requirements", details: passValidation.errors });
-      }
+    const resetRecord = (await query(
+      "SELECT * FROM password_reset_tokens WHERE user_id=$1 AND token=$2 AND used=0 AND expires_at>$3",
+      [user.id, code, Date.now()]
+    )).rows[0] as any;
 
-      const password_hash = await bcrypt.hash(newPassword, 12);
-      await pool.query("UPDATE users SET password_hash = $1 WHERE id = $2", [password_hash, resetRecord.user_id]);
-      await pool.query("UPDATE password_reset_tokens SET used = 1 WHERE id = $1", [resetRecord.id]);
-      
-      res.json({ message: "Password reset successfully" });
-    } else {
-      res.status(400).json({ error: "Invalid or expired reset code" });
-    }
+    if (!resetRecord) return res.status(400).json({ error: "Invalid or expired reset code" });
+
+    const passValidation = validatePassword(newPassword);
+    if (!passValidation.valid) return res.status(400).json({ error: "Password does not meet requirements", details: passValidation.errors });
+
+    const password_hash = await bcrypt.hash(newPassword, 12);
+    await query("UPDATE users SET password_hash=$1 WHERE id=$2", [password_hash, resetRecord.user_id]);
+    await query("UPDATE password_reset_tokens SET used=1 WHERE id=$1", [resetRecord.id]);
+
+    res.json({ message: "Password reset successfully" });
   } catch (error) {
-    console.error("Error in reset-password:", error);
-    res.status(500).json({ error: "Database connection error or internal server error" });
+    res.status(500).json({ error: "Internal server error" });
   }
 });
 
 app.get("/api/auth/google/url", (req, res) => {
-  const redirectUri = getRedirectUri();
-  console.log("Generating Auth URL with redirect_uri:", redirectUri);
-  
-  if (!process.env.APP_URL) {
-    return res.status(500).json({ error: "APP_URL environment variable is missing. This is required for Google Auth." });
-  }
-
-  if (!process.env.GOOGLE_CLIENT_ID || !process.env.GOOGLE_CLIENT_SECRET) {
-    return res.status(500).json({ error: "Google Client ID or Secret is missing in environment variables." });
-  }
+  if (!process.env.APP_URL) return res.status(500).json({ error: "APP_URL is missing" });
+  if (!process.env.GOOGLE_CLIENT_ID || !process.env.GOOGLE_CLIENT_SECRET) return res.status(500).json({ error: "Google credentials missing" });
 
   const url = client.generateAuthUrl({
     access_type: "offline",
-    scope: [
-      "https://www.googleapis.com/auth/userinfo.profile",
-      "https://www.googleapis.com/auth/userinfo.email",
-    ],
-    redirect_uri: redirectUri,
+    scope: ["https://www.googleapis.com/auth/userinfo.profile", "https://www.googleapis.com/auth/userinfo.email"],
+    redirect_uri: getRedirectUri(),
   });
   res.json({ url });
 });
 
-// Reminder endpoints
+// ─── REMINDERS ────────────────────────────────────────────────────────────────
 app.post("/api/reminders", async (req, res) => {
   const { userId, scholarshipId, scholarshipTitle, reminderTime } = req.body;
-  const id = Math.random().toString(36).substr(2, 9);
-  
+  const id = crypto.randomUUID();
   try {
-    await pool.query("INSERT INTO reminders (id, userId, scholarshipId, scholarshipTitle, reminderTime) VALUES ($1, $2, $3, $4, $5)", [id, userId, scholarshipId, scholarshipTitle, reminderTime]);
+    await query("INSERT INTO reminders (id, userid, scholarshipid, scholarshiptitle, remindertime) VALUES ($1,$2,$3,$4,$5)",
+      [id, userId, scholarshipId, scholarshipTitle, reminderTime]);
     res.json({ id, userId, scholarshipId, scholarshipTitle, reminderTime });
   } catch (error) {
-    console.error("Failed to save reminder:", error);
     res.status(500).json({ error: "Failed to save reminder" });
   }
 });
 
 app.get("/api/reminders/:userId", async (req, res) => {
-  const { userId } = req.params;
   try {
-    const reminders = (await pool.query("SELECT * FROM reminders WHERE userId = $1 AND triggered = 0", [userId])).rows;
+    const reminders = (await query("SELECT * FROM reminders WHERE userid=$1 AND triggered=0", [req.params.userId])).rows;
     res.json(reminders);
   } catch (error) {
-    console.error("Failed to fetch reminders:", error);
     res.status(500).json({ error: "Failed to fetch reminders" });
   }
 });
 
 app.post("/api/reminders/:id/trigger", async (req, res) => {
-  const { id } = req.params;
   try {
-    await pool.query("UPDATE reminders SET triggered = 1 WHERE id = $1", [id]);
+    await query("UPDATE reminders SET triggered=1 WHERE id=$1", [req.params.id]);
     res.json({ message: "Reminder marked as triggered" });
   } catch (error) {
-    console.error("Failed to update reminder:", error);
     res.status(500).json({ error: "Failed to update reminder" });
   }
 });
 
+// ─── GOOGLE OAUTH CALLBACK ────────────────────────────────────────────────────
 app.get("/auth/google/callback", async (req, res) => {
   const { code } = req.query;
-  const redirectUri = getRedirectUri();
-
-  if (!code) {
-    return res.status(400).send("No code provided");
-  }
-
-  console.log("Handling callback with code and redirect_uri:", redirectUri);
+  if (!code) return res.status(400).send("No code provided");
 
   try {
-    const { tokens } = await client.getToken({
-      code: code as string,
-      redirect_uri: redirectUri,
-    });
+    const { tokens } = await client.getToken({ code: code as string, redirect_uri: getRedirectUri() });
     client.setCredentials(tokens);
 
-    const userInfo = await client.request({
-      url: "https://www.googleapis.com/oauth2/v3/userinfo",
-    });
-
+    const userInfo = await client.request({ url: "https://www.googleapis.com/oauth2/v3/userinfo" });
     const googleUser = userInfo.data as any;
 
-    // Persist user to database if they don't exist
-    let dbUser = (await pool.query("SELECT * FROM users WHERE email = $1", [googleUser.email])).rows[0] as any;
-    
+    let dbUser = (await query("SELECT * FROM users WHERE email=$1", [googleUser.email])).rows[0] as any;
+
     if (!dbUser) {
-      const id = Math.random().toString(36).substr(2, 9);
-      await pool.query("INSERT INTO users (id, email, fullname, auth_provider) VALUES ($1, $2, $3, $4)", [id, googleUser.email, googleUser.name, 'google']);
+      const id = crypto.randomUUID();
+      await query("INSERT INTO users (id, email, fullname, auth_provider) VALUES ($1,$2,$3,$4)",
+        [id, googleUser.email, googleUser.name, 'google']);
       dbUser = { id, email: googleUser.email, fullname: googleUser.name };
     }
 
-    // Send user back via postMessage to the parent window.
+    const jwtToken = jwt.sign({ id: dbUser.id, email: dbUser.email }, JWT_SECRET, { expiresIn: '7d' });
+
     res.send(`
-      <html>
-        <body>
-          <script>
-            if (window.opener) {
-              window.opener.postMessage({ 
-                type: 'OAUTH_AUTH_SUCCESS', 
-                user: ${JSON.stringify({
-                  id: dbUser.id,
-                  email: dbUser.email,
-                  fullName: dbUser.fullname,
-                  phoneNumber: dbUser.phonenumber || ''
-                })}
-              }, '*');
-              window.close();
-            } else {
-              window.location.href = '/';
-            }
-          </script>
-          <p>Authentication successful. This window should close automatically.</p>
-        </body>
-      </html>
+      <html><body><script>
+        if (window.opener) {
+          window.opener.postMessage({
+            type: 'OAUTH_AUTH_SUCCESS',
+            user: ${JSON.stringify({
+              id: dbUser.id,
+              email: dbUser.email,
+              fullName: dbUser.fullname,
+              phoneNumber: dbUser.phonenumber || '',
+              token: jwtToken
+            })}
+          }, '*');
+          window.close();
+        } else { window.location.href = '/'; }
+      </script><p>Authentication successful. This window should close automatically.</p></body></html>
     `);
   } catch (error) {
     console.error("Google Auth Error:", error);
@@ -861,7 +721,7 @@ app.get("/auth/google/callback", async (req, res) => {
   }
 });
 
-// Vite middleware for development
+// ─── VITE / STATIC ────────────────────────────────────────────────────────────
 if (process.env.NODE_ENV !== "production") {
   const vite = await createViteServer({
     server: { middlewareMode: true },
@@ -870,7 +730,7 @@ if (process.env.NODE_ENV !== "production") {
   app.use(vite.middlewares);
 } else {
   app.use(express.static("dist"));
-  app.get("*", (req, res) => {
+  app.get("*", (_req, res) => {
     res.sendFile("dist/index.html", { root: "." });
   });
 }

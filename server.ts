@@ -8,7 +8,6 @@ import bcrypt from "bcryptjs";
 import crypto from "crypto";
 import nodemailer from "nodemailer";
 import jwt from "jsonwebtoken";
-import cors from "cors";
 import { validatePassword } from "./src/utils/passwordValidator";
 
 dotenv.config();
@@ -18,13 +17,22 @@ const JWT_SECRET = process.env.JWT_SECRET || 'your-secret-key-for-jwt';
 const app = express();
 const PORT = Number(process.env.PORT) || 3000;
 
-app.use(cors({
-  origin: '*',
-  methods: ['GET', 'POST', 'PUT', 'DELETE', 'OPTIONS', 'PATCH'],
-  allowedHeaders: ['Content-Type', 'Authorization', 'X-Requested-With', 'Accept', 'Origin'],
-  optionsSuccessStatus: 200
-}));
-app.options('*', cors());
+app.use((req, res, next) => {
+  const origin = req.headers.origin;
+  if (origin) {
+    res.setHeader('Access-Control-Allow-Origin', origin);
+  } else {
+    res.setHeader('Access-Control-Allow-Origin', '*');
+  }
+  res.setHeader('Access-Control-Allow-Methods', 'GET, POST, PUT, DELETE, OPTIONS, PATCH');
+  res.setHeader('Access-Control-Allow-Headers', 'Origin, X-Requested-With, Content-Type, Accept, Authorization');
+  res.setHeader('Access-Control-Allow-Credentials', 'true');
+  
+  if (req.method === 'OPTIONS') {
+    return res.status(200).end();
+  }
+  next();
+});
 app.use(express.json());
 
 const transporter = nodemailer.createTransport({
@@ -82,8 +90,31 @@ const pool = {
         const info = database.prepare(sqliteSql).run(...safeParams);
         return { rows: [], rowCount: info.changes };
       }
-    } catch (error) {
+    } catch (error: any) {
       console.error('SQL Error:', error);
+      if (error.code === 'SQLITE_CORRUPT') {
+        console.error('Database is corrupted. Attempting to delete and recreate...');
+        if (db) {
+          try {
+            db.close();
+          } catch (closeError) {
+            console.error('Failed to close corrupted database:', closeError);
+          }
+          db = null;
+        }
+        try {
+          const fs = await import('fs');
+          if (fs.existsSync(dbPath)) {
+            fs.unlinkSync(dbPath);
+            console.log('Corrupted database deleted.');
+          }
+          // Re-initialize the database
+          await initDb();
+          console.log('Database recreated successfully.');
+        } catch (fsError) {
+          console.error('Failed to delete corrupted database:', fsError);
+        }
+      }
       throw error;
     }
   }

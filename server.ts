@@ -1,5 +1,4 @@
-mport express from "express";
-
+import express from "express";
 import { OAuth2Client } from "google-auth-library";
 import dotenv from "dotenv";
 import pkg from "pg";
@@ -47,12 +46,12 @@ const transporter = nodemailer.createTransport({
 
 const sendEmail = async (to: string, subject: string, text: string) => {
   if (!process.env.EMAIL_USER || !process.env.EMAIL_PASS) {
-    console.log(⁠ [DEMO EMAIL] To: ${to} | Subject: ${subject} | Text: ${text} ⁠);
+    console.log(`[DEMO EMAIL] To: ${to} | Subject: ${subject} | Text: ${text}`);
     return;
   }
   try {
     await transporter.sendMail({
-      from: ⁠ "MeritUs" <${process.env.EMAIL_USER}> ⁠,
+      from: `"MeritUs" <${process.env.EMAIL_USER}>`,
       to, subject, text
     });
   } catch (error) {
@@ -248,7 +247,7 @@ const client = new OAuth2Client(
 
 const getRedirectUri = () => {
   const baseUrl = (process.env.APP_URL || "").replace(/\/$/, "");
-  return ⁠ ${baseUrl}/auth/google/callback ⁠;
+  return `${baseUrl}/auth/google/callback`;
 };
 
 // ─── ADMIN MIDDLEWARE ─────────────────────────────────────────────────────────
@@ -502,7 +501,7 @@ app.post("/api/auth/send-verification", async (req, res) => {
     `, [email, code, expires]);
 
     await sendEmail(email, "Your MeritUs Verification Code",
-      ⁠ Your verification code is: ${code}\n\nThis code will expire in 15 minutes. ⁠);
+      `Your verification code is: ${code}\n\nThis code will expire in 15 minutes.`);
 
     res.json({ message: "Verification code sent", demoCode: code });
   } catch (error) {
@@ -535,7 +534,7 @@ app.post("/api/auth/signup", async (req, res) => {
     await query("DELETE FROM verification_codes WHERE email=$1", [email]);
 
     sendEmail(email, "Welcome to MeritUs!",
-      ⁠ Hi ${fullName},\n\nYour account has been created. Get ready to find the best scholarships!\n\nBest,\nThe MeritUs Team ⁠
+      `Hi ${fullName},\n\nYour account has been created. Get ready to find the best scholarships!\n\nBest,\nThe MeritUs Team`
     ).catch(console.error);
 
     const token = jwt.sign({ id, email }, JWT_SECRET, { expiresIn: '7d' });
@@ -602,7 +601,7 @@ app.post("/api/auth/forgot-password", async (req, res) => {
       [id, user.id, code, expires]);
 
     await sendEmail(email, "Reset Your MeritUs Password",
-      ⁠ Your 6-digit reset code is:\n\n${code}\n\nExpires in 15 minutes. ⁠);
+      `Your 6-digit reset code is:\n\n${code}\n\nExpires in 15 minutes.`);
 
     res.json({ message: "Reset code sent", demoCode: code });
   } catch (error) {
@@ -760,5 +759,5 @@ if (process.env.NODE_ENV !== "production") {
 }
 
 app.listen(PORT, "0.0.0.0", () => {
-  console.log(⁠ Server running on http://localhost:${PORT} ⁠);
+  console.log(`Server running on http://localhost:${PORT}`);
 });

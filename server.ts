@@ -19,17 +19,23 @@ const PORT = Number(process.env.PORT) || 3000;
 // ─── CORS ─────────────────────────────────────────────────────────────────────
 app.use((req, res, next) => {
   const origin = req.headers.origin;
-  if (
-    !origin ||
-    origin.endsWith('.vercel.app') ||
-    origin.startsWith('http://localhost')
-  ) {
+  const allowedOrigins = [
+    /\.vercel\.app$/,
+    /^http:\/\/localhost/,
+  ];
+
+  if (!origin || allowedOrigins.some(pattern => pattern.test(origin))) {
     res.setHeader('Access-Control-Allow-Origin', origin || '*');
   }
+
   res.setHeader('Access-Control-Allow-Methods', 'GET, POST, PUT, DELETE, OPTIONS, PATCH');
   res.setHeader('Access-Control-Allow-Headers', 'Origin, X-Requested-With, Content-Type, Accept, Authorization, x-user-email');
   res.setHeader('Access-Control-Allow-Credentials', 'true');
-  if (req.method === 'OPTIONS') return res.status(200).end();
+
+  if (req.method === 'OPTIONS') {
+    res.status(204).end();
+    return;
+  }
   next();
 });
 

@@ -1,5 +1,5 @@
 import express from "express";
-import { createServer as createViteServer } from "vite";
+
 import { OAuth2Client } from "google-auth-library";
 import dotenv from "dotenv";
 import pkg from "pg";
@@ -723,6 +723,7 @@ app.get("/auth/google/callback", async (req, res) => {
 
 // ─── VITE / STATIC ────────────────────────────────────────────────────────────
 if (process.env.NODE_ENV !== "production") {
+  const { createServer: createViteServer } = await import("vite");
   const vite = await createViteServer({
     server: { middlewareMode: true },
     appType: "spa",

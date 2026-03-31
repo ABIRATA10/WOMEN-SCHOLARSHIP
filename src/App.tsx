@@ -23,11 +23,35 @@ export default function App() {
   const { language, setLanguage, t, translateNumber } = useLanguage();
   const [currentUser, setCurrentUser] = React.useState<UserType | null>(() => {
     const saved = localStorage.getItem('scholar_current_user');
-    return saved ? JSON.parse(saved) : null;
+    if (saved) return JSON.parse(saved);
+    return {
+      id: 'demo-user-123',
+      email: 'abiratapanda46@gmail.com',
+      name: 'Abirata Panda'
+    };
   });
   const [profile, setProfile] = React.useState<UserProfile | null>(() => {
     const saved = localStorage.getItem('scholar_profile');
-    return saved ? JSON.parse(saved) : null;
+    if (saved) return JSON.parse(saved);
+    return {
+      fullName: 'Abirata Panda',
+      email: 'abiratapanda46@gmail.com',
+      phone: '',
+      dob: '2000-01-01',
+      gender: 'Male',
+      category: 'General',
+      state: 'Odisha',
+      district: '',
+      annualIncome: 500000,
+      educationLevel: 'Undergraduate',
+      currentCourse: 'B.Tech',
+      currentYear: 2,
+      previousGpa: 8.5,
+      skills: ['Programming'],
+      interests: ['Technology'],
+      country: 'India',
+      search_scope: 'India'
+    };
   });
   const [results, setResults] = React.useState<ScholarshipMatch[]>(() => {
     const saved = localStorage.getItem('scholar_results');
@@ -139,32 +163,7 @@ export default function App() {
 
   // Fetch reminders and profile
   React.useEffect(() => {
-    if (currentUser) {
-      fetch(`${API_URL}/api/reminders/${currentUser.id}`)
-        .then(res => res.json())
-        .then(data => {
-          if (Array.isArray(data)) {
-            setReminders(data);
-          } else {
-            console.error("Invalid reminders data:", data);
-            setReminders([]);
-          }
-        })
-        .catch(err => {
-          console.error("Failed to fetch reminders", err);
-          setReminders([]);
-        });
-
-      fetch(`${API_URL}/api/profile/${currentUser.id}`)
-        .then(res => {
-          if (res.ok) return res.json();
-          throw new Error('Profile not found');
-        })
-        .then(data => {
-          if (data) setProfile(data);
-        })
-        .catch(err => console.error("Failed to fetch profile", err));
-    }
+    // Demo mode: No backend fetching
   }, [currentUser]);
 
   // Reminder polling
@@ -181,10 +180,6 @@ export default function App() {
               type: 'scholarship'
             }
           }));
-
-          // Mark as triggered in DB
-          fetch(`${API_URL}/api/reminders/${reminder.id}/trigger`, { method: 'POST' })
-            .catch(err => console.error("Failed to trigger reminder", err));
 
           // Update local state
           setReminders(prev => prev.filter(r => r.id !== reminder.id));
@@ -213,13 +208,6 @@ export default function App() {
     setProfile(newProfile);
     setView('Results');
     try {
-      if (currentUser) {
-        await fetch(`${API_URL}/api/profile/${currentUser.id}`, {
-          method: 'POST',
-          headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify(newProfile)
-        });
-      }
       const searchResults = await findScholarships(newProfile);
       setResults(searchResults);
     } catch (err: any) {
@@ -232,17 +220,6 @@ export default function App() {
 
   const handleAutoSave = async (newProfile: UserProfile) => {
     setProfile(newProfile);
-    if (currentUser) {
-      try {
-        await fetch(`${API_URL}/api/profile/${currentUser.id}`, {
-          method: 'POST',
-          headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify(newProfile)
-        });
-      } catch (err) {
-        console.error("Failed to auto-save profile:", err);
-      }
-    }
   };
 
   const parseDeadline = (deadline: string): number => {
@@ -366,15 +343,7 @@ export default function App() {
           }
         }
         if (scholarship) {
-          fetch(`${API_URL}/api/notifications/email`, {
-            method: 'POST',
-            headers: { 'Content-Type': 'application/json' },
-            body: JSON.stringify({
-              email: currentUser.email,
-              subject: `Application Started: ${scholarship.title}`,
-              text: `You have started an application for: ${scholarship.title}.\n\nProvider: ${scholarship.provider}\nAmount: ${scholarship.amount}\nDeadline: ${scholarship.deadline}\n\nGood luck with your application!`
-            })
-          }).catch(console.error);
+          // Demo mode: No email notifications
         }
       }
     }
@@ -425,15 +394,7 @@ export default function App() {
           }
         }
         if (scholarship) {
-          fetch(`${API_URL}/api/notifications/email`, {
-            method: 'POST',
-            headers: { 'Content-Type': 'application/json' },
-            body: JSON.stringify({
-              email: currentUser.email,
-              subject: `Scholarship Saved: ${scholarship.title}`,
-              text: `You have successfully saved the scholarship: ${scholarship.title}.\n\nProvider: ${scholarship.provider}\nAmount: ${scholarship.amount}\nDeadline: ${scholarship.deadline}\n\nDon't forget to apply before the deadline!`
-            })
-          }).catch(console.error);
+          // Demo mode: No email notifications
         }
       }
       if (prev.includes(id)) {
@@ -454,29 +415,25 @@ export default function App() {
     if (!currentUser) return;
     
     try {
-      const response = await fetch(`${API_URL}/api/reminders`, {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({
-          userId: currentUser.id,
-          scholarshipId,
-          scholarshipTitle,
-          reminderTime: time
-        })
-      });
+      const newReminder = {
+        id: Date.now().toString(),
+        userId: currentUser.id,
+        scholarshipId,
+        scholarshipTitle,
+        reminderTime: time,
+        triggered: false,
+        createdAt: new Date().toISOString()
+      };
       
-      if (response.ok) {
-        const newReminder = await response.json();
-        setReminders(prev => [...prev, newReminder]);
-        
-        window.dispatchEvent(new CustomEvent('add-notification', {
-          detail: {
-            title: "Reminder Set! ✨",
-            message: `We'll remind you about ${scholarshipTitle} on ${new Date(time).toLocaleString()}`,
-            type: 'success'
-          }
-        }));
-      }
+      setReminders(prev => [...prev, newReminder]);
+      
+      window.dispatchEvent(new CustomEvent('add-notification', {
+        detail: {
+          title: "Reminder Set! ✨",
+          message: `We'll remind you about ${scholarshipTitle} on ${new Date(time).toLocaleString()}`,
+          type: 'success'
+        }
+      }));
     } catch (error) {
       console.error("Failed to set reminder", error);
     }
@@ -486,8 +443,32 @@ export default function App() {
     localStorage.removeItem('scholar_current_user');
     localStorage.removeItem('scholar_profile');
     localStorage.removeItem('scholar_results');
-    setCurrentUser(null);
-    setProfile(null); 
+    
+    // In demo mode, reset to demo user instead of null
+    setCurrentUser({
+      id: 'demo-user-123',
+      email: 'abiratapanda46@gmail.com',
+      name: 'Abirata Panda'
+    });
+    setProfile({
+      fullName: 'Abirata Panda',
+      email: 'abiratapanda46@gmail.com',
+      phone: '',
+      dob: '2000-01-01',
+      gender: 'Male',
+      category: 'General',
+      state: 'Odisha',
+      district: '',
+      annualIncome: 500000,
+      educationLevel: 'Undergraduate',
+      currentCourse: 'B.Tech',
+      currentYear: 2,
+      previousGpa: 8.5,
+      skills: ['Programming'],
+      interests: ['Technology'],
+      country: 'India',
+      search_scope: 'India'
+    }); 
     setResults([]); 
     setView('Landing'); 
     setShowLogoutConfirm(false);

@@ -18,14 +18,15 @@ export async function findScholarships(
   }
 
   let dbScholarships = [];
-  try {
-    const res = await fetch(`${API_URL}/api/scholarships`);
-    if (res.ok) {
-      dbScholarships = await res.json();
-    }
-  } catch (err) {
-    console.warn("Could not fetch DB scholarships, proceeding with local data and AI search.", err);
-  }
+  // Demo mode: Skip backend fetch
+  // try {
+  //   const res = await fetch(`${API_URL}/api/scholarships`);
+  //   if (res.ok) {
+  //     dbScholarships = await res.json();
+  //   }
+  // } catch (err) {
+  //   console.warn("Could not fetch DB scholarships, proceeding with local data and AI search.", err);
+  // }
 
     const prompt = `
     Perform an exhaustive real-time search for ALL available and upcoming scholarships worldwide for the following user profile.

@@ -11,7 +11,8 @@ interface ProfileFormProps {
 }
 
 export const ProfileForm: React.FC<ProfileFormProps> = ({ onSubmit, isLoading, initialData, onAutoSave }) => {
-  const [formData, setFormData] = React.useState<UserProfile>(initialData || {
+  // ✅ FIX: Merge defaults WITH initialData so null DB fields never crash .length calls
+  const [formData, setFormData] = React.useState<UserProfile>({
     fullName: '',
     phoneNumber: '',
     age: 20,
@@ -35,6 +36,27 @@ export const ProfileForm: React.FC<ProfileFormProps> = ({ onSubmit, isLoading, i
     extracurriculars: '',
     awards: '',
     search_scope: 'Both',
+    ...initialData,
+    // Force null/undefined DB values → empty string for fields used with .length
+    pincode: initialData?.pincode ?? '',
+    state: initialData?.state ?? '',
+    address: initialData?.address ?? '',
+    country: initialData?.country ?? 'India',
+    fullName: initialData?.fullName ?? '',
+    phoneNumber: initialData?.phoneNumber ?? '',
+    gpa: initialData?.gpa ?? '',
+    institution: initialData?.institution ?? '',
+    fieldOfStudy: initialData?.fieldOfStudy ?? '',
+    caste: initialData?.caste ?? '',
+    incomeBracket: initialData?.incomeBracket ?? '',
+    background: initialData?.background ?? '',
+    careerGoals: initialData?.careerGoals ?? '',
+    profileDeadline: initialData?.profileDeadline ?? '',
+    languagesSpoken: initialData?.languagesSpoken ?? '',
+    volunteerExperience: initialData?.volunteerExperience ?? '',
+    extracurriculars: initialData?.extracurriculars ?? '',
+    awards: initialData?.awards ?? '',
+    search_scope: initialData?.search_scope ?? 'Both',
   });
 
   const [isFetchingAddress, setIsFetchingAddress] = React.useState(false);

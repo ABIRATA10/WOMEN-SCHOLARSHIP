@@ -31,7 +31,7 @@ export interface UserProfile {
   languagesSpoken?: string;
   volunteerExperience?: string;
   profile_completion_percentage?: number;
-  search_scope?: 'India' | 'International' | 'Both';
+  search_scope?: 'State' | 'National' | 'Global' | 'All';
   documents?: { name: string; url: string; type: string }[];
   privacySettings?: {
     profileVisibility: 'Public' | 'Private';
@@ -46,6 +46,7 @@ export interface Scholarship {
   provider: string;
   amount: string;
   deadline: string;
+  startDate?: string;
   eligibilityCriteria: string;
   description: string;
   category: 'Government' | 'Private';

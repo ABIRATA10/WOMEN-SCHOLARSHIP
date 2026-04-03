@@ -15,14 +15,14 @@ export const ProfileForm: React.FC<ProfileFormProps> = ({ onSubmit, isLoading, i
     const defaults: UserProfile = {
       fullName: '',
       phoneNumber: '',
-      age: 20,
-      gender: 'Prefer not to say',
-      educationLevel: 'Undergraduate',
-      yearOfStudy: '1st Year',
+      age: '' as any,
+      gender: '' as any,
+      educationLevel: '' as any,
+      yearOfStudy: '' as any,
       institution: '',
       fieldOfStudy: '',
       gpa: '',
-      country: 'India',
+      country: '',
       state: '',
       pincode: '',
       address: '',
@@ -35,7 +35,7 @@ export const ProfileForm: React.FC<ProfileFormProps> = ({ onSubmit, isLoading, i
       volunteerExperience: '',
       extracurriculars: '',
       awards: '',
-      search_scope: 'Both',
+      search_scope: 'All',
     };
     return initialData ? { ...defaults, ...initialData } : defaults;
   });
@@ -292,9 +292,10 @@ export const ProfileForm: React.FC<ProfileFormProps> = ({ onSubmit, isLoading, i
               onChange={handleChange}
               className={inputClasses}
             >
-              <option value="India">India Only</option>
-              <option value="International">International Only</option>
-              <option value="Both">Both (Global)</option>
+              <option value="All">All Levels</option>
+              <option value="State">State Level Only</option>
+              <option value="National">National Level Only</option>
+              <option value="Global">Global/International Only</option>
             </select>
           </div>
         </div>

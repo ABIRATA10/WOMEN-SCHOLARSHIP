@@ -87,6 +87,7 @@ export const SupportChatbot: React.FC<SupportChatbotProps> = ({ user }) => {
         config: {
           systemInstruction: `
             You are "Zig", the official AI Scholarship Advisor and Mentor for MeritUs.
+            The user you are talking to is named ${user?.fullName || 'User'}. Always address them by their name occasionally to make it personal.
             
             Your Persona:
             - **Empowering & Professional**: You are a highly knowledgeable mentor. You believe in the potential of every student and provide strategic, actionable advice to help them secure funding.

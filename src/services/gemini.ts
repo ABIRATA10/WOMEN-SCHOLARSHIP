@@ -34,9 +34,19 @@ function getFallbackScholarships(userProfile: UserProfile): ScholarshipMatch[] {
       reasoning = "Strong match for your gender.";
     }
 
-    if (state !== 'All' && userProfile.state && state.toLowerCase() !== userProfile.state.toLowerCase()) {
+    let derivedScope: 'State' | 'National' | 'Global' = 'State';
+    if (state === 'All') derivedScope = 'National';
+    if (state === 'Global') derivedScope = 'Global';
+
+    if (userProfile.search_scope && userProfile.search_scope !== 'All') {
+      if (userProfile.search_scope !== derivedScope) {
+        continue;
+      }
+    }
+
+    if (state !== 'All' && state !== 'Global' && userProfile.state && state.toLowerCase() !== userProfile.state.toLowerCase()) {
       continue; // Skip if state doesn't match
-    } else if (state !== 'All') {
+    } else if (state !== 'All' && state !== 'Global') {
       score += 20;
       reasoning = "Matches your specific state.";
     }
@@ -51,13 +61,13 @@ function getFallbackScholarships(userProfile: UserProfile): ScholarshipMatch[] {
         eligibilityCriteria: eligibility,
         description: `${providerType} scholarship for ${educationLevel} students.`,
         category: providerType.includes('Government') ? 'Government' : 'Private',
-        scope: state === 'All' ? 'National' : 'State',
-        country: 'India',
+        scope: derivedScope,
+        country: derivedScope === 'Global' ? 'International' : 'India',
         link,
         targetCommunity: category,
         major: 'General',
         minGpa: 0,
-        location: state === 'All' ? 'India' : state,
+        location: state === 'All' ? 'India' : (state === 'Global' ? 'International' : state),
         type: 'Merit-based',
         fullyFunded: false,
         genderSpecific: gender
@@ -71,7 +81,7 @@ function getFallbackScholarships(userProfile: UserProfile): ScholarshipMatch[] {
     });
   }
 
-  return matches.sort((a, b) => b.match.matchScore - a.match.matchScore).slice(0, 20);
+  return matches.sort((a, b) => b.match.matchScore - a.match.matchScore).slice(0, 50);
 }
 
 const apiKey = process.env.GEMINI_API_KEY || "";
@@ -120,8 +130,10 @@ export async function findScholarships(
        - Upcoming scholarships (those opening in the next 6-12 months).
        - CRITICAL GENDER MATCHING: The user's gender is "${userProfile.gender}". If the user is Female, you MUST prioritize and include scholarships exclusively for women/girls. If the user is Male, you MUST NOT include scholarships that are exclusively for females/women/girls. Only include scholarships that are for males or open to all genders.
        - Local opportunities in ${userProfile.country} and ${userProfile.state}. (e.g., if the user is from Odisha, search for e-Medhabruti, KALIA/Krusi Vidya, Gopabandhu Sikhya Sahayata Yojana, etc.)
-       ${userProfile.search_scope === 'India' ? '- CRITICAL: The user has selected "India only". DO NOT show any international scholarships. Only show scholarships available in India.' : '- Global opportunities (USA, UK, Europe, etc.) that accept international students from ' + userProfile.country + '.'}
-       ${(userProfile.search_scope === 'International' || userProfile.search_scope === 'Both') ? '- CRITICAL: The user has selected "International" or "Both". Ensure you include a mix of global scholarships.' : ''}
+       ${userProfile.search_scope === 'State' ? '- CRITICAL: The user has selected "State Level Only". DO NOT show any national or international scholarships. Only show scholarships specific to ' + userProfile.state + '.' : ''}
+       ${userProfile.search_scope === 'National' ? '- CRITICAL: The user has selected "National Level Only". DO NOT show any state-specific or international scholarships. Only show scholarships available nationally in ' + userProfile.country + '.' : ''}
+       ${userProfile.search_scope === 'Global' ? '- CRITICAL: The user has selected "Global/International Only". DO NOT show any local or national scholarships. Only show international scholarships.' : ''}
+       ${userProfile.search_scope === 'All' ? '- CRITICAL: The user has selected "All Levels". Ensure you include a mix of state, national, and global scholarships.' : ''}
        - If the user has set a profile completion deadline (${userProfile.profileDeadline}), prioritize scholarships with deadlines that align with or follow this date, ensuring the user has enough time to apply after completing their profile.
        - CRITICAL: Leverage richer schema fields from the Database Scholarships to make highly accurate matches. Specifically, check if the user's profile matches the \`eligible_categories\`, \`eligible_states\`, \`eligible_courses\`, \`max_family_income\`, \`gender\`, \`min_percentage\`, and \`disability_required\` fields. For example, if a scholarship has \`max_family_income\` of 250000, and the user's \`incomeBracket\` is "> 8L", DO NOT match them. If a scholarship requires \`disability_required\` = 1, and the user has no disability, DO NOT match them.
        - CRITICAL RANKING: Rank fully-funded international scholarships higher when the student has 80%+ marks (or equivalent CGPA) and income below ₹8L.
@@ -224,30 +236,12 @@ export async function findScholarships(
   } catch (error: any) {
     console.error("Error finding scholarships:", error);
     
-    if (error.message?.includes("fetch") || error.message?.includes("network") || error.name === "TypeError") {
-      throw new Error("Network error: We couldn't connect to the AI service. Please check your internet connection and try again.");
-    }
-
-    if (error.message?.includes("quota") || error.message?.includes("limit") || error.message?.includes("429") || error.message?.includes("fetch") || error.message?.includes("network")) {
-      console.warn("Falling back to local data due to API error.");
-      return getFallbackScholarships(userProfile);
-    }
-    
-    if (error.message?.includes("JSON") || error.name === "SyntaxError") {
-      console.warn("Falling back to local data due to JSON parsing error.");
-      return getFallbackScholarships(userProfile);
-    }
-
-    if (error.message?.includes("API key not valid") || error.message?.includes("403")) {
-      console.warn("Falling back to local data due to API key error.");
-      return getFallbackScholarships(userProfile);
-    }
-
     if (error.message?.includes("matching your current profile")) {
       throw error;
     }
 
-    throw new Error(error.message || "Oops! Something went wrong while searching for scholarships. 😔 Please try again!");
+    console.warn("Falling back to local data due to an error:", error.message);
+    return getFallbackScholarships(userProfile);
   }
 }
 

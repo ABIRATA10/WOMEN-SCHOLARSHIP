@@ -51,7 +51,7 @@ export default function App() {
       incomeBracket: '5L - 8L',
       background: 'STEM enthusiast',
       careerGoals: 'Software Engineer',
-      search_scope: 'India'
+      search_scope: 'All'
     };
   });
   const [results, setResults] = React.useState<ScholarshipMatch[]>(() => {
@@ -207,6 +207,9 @@ export default function App() {
     setIsLoading(true);
     setError(null);
     setProfile(newProfile);
+    if (newProfile.search_scope && ['State', 'National', 'Global', 'All'].includes(newProfile.search_scope)) {
+      setScopeFilter(newProfile.search_scope as any);
+    }
     setView('Results');
     try {
       const searchResults = await findScholarships(newProfile);
@@ -477,7 +480,7 @@ export default function App() {
       incomeBracket: '5L - 8L',
       background: 'STEM enthusiast',
       careerGoals: 'Software Engineer',
-      search_scope: 'India'
+      search_scope: 'All'
     }); 
     setResults([]); 
     setView('Landing'); 
@@ -777,7 +780,7 @@ export default function App() {
                   
                   <div className="flex flex-col sm:flex-row gap-4 justify-center">
                     <button 
-                      onClick={() => setView('Profile')}
+                      onClick={() => { setProfile(null); setView('Profile'); }}
                       className="px-8 py-4 bg-slate-100 text-slate-900 rounded-2xl text-sm font-black uppercase tracking-widest hover:bg-slate-200 transition-all"
                     >
                       Edit Profile

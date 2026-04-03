@@ -314,7 +314,7 @@ export const UserProfileView: React.FC<UserProfileViewProps> = ({
               }} 
               onAutoSave={onAutoSave}
               isLoading={isLoading} 
-              initialData={profile} 
+              initialData={null} 
             />
           </motion.div>
         )}

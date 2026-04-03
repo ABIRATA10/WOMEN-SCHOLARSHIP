@@ -223,7 +223,10 @@ export const ScholarshipCard: React.FC<ScholarshipCardProps> = ({
         </div>
         <div className="flex items-center gap-3 text-sm text-slate-400 font-bold">
           <Calendar size={16} className={isPastDeadline ? "text-slate-400" : "text-rose-300"} />
-          <span className={isPastDeadline ? "text-rose-500 line-through" : ""}>Deadline: {scholarship.deadline}</span>
+          <span className={isPastDeadline ? "text-rose-500 line-through" : ""}>
+            {scholarship.startDate ? `Start: ${scholarship.startDate} | ` : ''}
+            End: {scholarship.deadline}
+          </span>
         </div>
       </div>
 
@@ -459,7 +462,7 @@ export const ScholarshipCard: React.FC<ScholarshipCardProps> = ({
                 }}
                 className="w-full py-5 bg-gradient-to-r from-blue-600 to-violet-600 hover:from-blue-700 hover:to-violet-700 text-white text-sm font-black uppercase tracking-widest rounded-2xl transition-all flex items-center justify-center gap-2 shadow-xl shadow-blue-200 group/btn"
               >
-                Direct Link to Apply <ExternalLink size={18} className="group-hover/btn:translate-x-0.5 group-hover/btn:-translate-y-0.5 transition-transform" />
+                Apply Now <ExternalLink size={18} className="group-hover/btn:translate-x-0.5 group-hover/btn:-translate-y-0.5 transition-transform" />
               </a>
             ) : (
               <div className="grid grid-cols-2 gap-3">

@@ -607,11 +607,11 @@ export default function App() {
               </div>
 
               {/* Mobile Menu Toggle */}
-              <div className="lg:hidden flex items-center gap-3">
+              <div className="lg:hidden flex items-center gap-2 sm:gap-3">
                 <select
                   value={language}
                   onChange={(e) => setLanguage(e.target.value as any)}
-                  className="bg-white border border-slate-200 text-xs font-bold text-slate-600 rounded-lg px-2 py-1.5 outline-none cursor-pointer hover:bg-slate-50 transition-colors shadow-sm"
+                  className="bg-white border border-slate-200 text-xs font-bold text-slate-600 rounded-lg px-2 py-1.5 outline-none cursor-pointer hover:bg-slate-50 transition-colors shadow-sm hidden sm:block"
                 >
                   <option value="en">EN</option>
                   <option value="hi">HI</option>
@@ -619,8 +619,15 @@ export default function App() {
                 </select>
                 <NotificationManager />
                 <button 
+                  onClick={() => setView('Profile')}
+                  className="p-2.5 bg-blue-50 text-blue-600 rounded-xl border border-blue-100 hover:bg-blue-100 transition-colors"
+                  aria-label="Edit Profile"
+                >
+                  <User size={20} />
+                </button>
+                <button 
                   onClick={() => setIsMenuOpen(!isMenuOpen)}
-                  className="p-2.5 bg-slate-50 text-slate-900 rounded-xl border border-slate-100"
+                  className="p-2.5 bg-slate-50 text-slate-900 rounded-xl border border-slate-100 hover:bg-slate-100 transition-colors"
                 >
                   {isMenuOpen ? <X size={20} /> : <Menu size={20} />}
                 </button>
@@ -629,117 +636,118 @@ export default function App() {
           )}
         </div>
 
-        {/* Mobile Menu Overlay */}
-        <AnimatePresence>
-          {isMenuOpen && (
-            <>
-              <motion.div
-                initial={{ opacity: 0 }}
-                animate={{ opacity: 1 }}
-                exit={{ opacity: 0 }}
-                onClick={() => setIsMenuOpen(false)}
-                className="fixed inset-0 bg-slate-900/40 backdrop-blur-sm z-40 lg:hidden"
-              />
-              <motion.div
-                initial={{ x: '100%' }}
-                animate={{ x: 0 }}
-                exit={{ x: '100%' }}
-                transition={{ type: 'spring', damping: 25, stiffness: 200 }}
-                className="fixed top-0 right-0 bottom-0 w-[85vw] max-w-sm bg-white z-50 lg:hidden flex flex-col shadow-2xl border-l border-slate-100"
-              >
-                <div className="p-6 flex items-center justify-between border-b border-slate-100">
-                  <Logo size={32} showText={true} />
-                  <button 
-                    onClick={() => setIsMenuOpen(false)}
-                    className="p-2.5 bg-slate-50 text-slate-900 rounded-xl border border-slate-100 hover:bg-slate-100 transition-colors"
-                  >
-                    <X size={20} />
-                  </button>
-                </div>
-                
-                <div className="flex-1 overflow-y-auto p-6 space-y-6">
-                  <div>
-                    <p className="text-[10px] font-black uppercase tracking-widest text-slate-400 mb-3 ml-2">Navigation</p>
-                    <div className="space-y-2">
-                      <button 
-                        onClick={() => { setView('Results'); setIsMenuOpen(false); }}
-                        className={`w-full flex items-center gap-4 px-5 py-4 rounded-2xl text-xs font-black uppercase tracking-widest transition-all ${
-                          view === 'Results' ? 'bg-blue-50 text-blue-600 border border-blue-100' : 'bg-transparent text-slate-600 hover:bg-slate-50 border border-transparent'
-                        }`}
-                      >
-                        <Search size={18} /> Find Scholarships
-                      </button>
-                      <button 
-                        onClick={() => { setView('Dashboard'); setIsMenuOpen(false); }}
-                        className={`w-full flex items-center gap-4 px-5 py-4 rounded-2xl text-xs font-black uppercase tracking-widest transition-all ${
-                          view === 'Dashboard' ? 'bg-blue-50 text-blue-600 border border-blue-100' : 'bg-transparent text-slate-600 hover:bg-slate-50 border border-transparent'
-                        }`}
-                      >
-                        <LayoutDashboard size={18} /> Dashboard
-                      </button>
-                      <button 
-                        onClick={() => { setView('Applications'); setIsMenuOpen(false); }}
-                        className={`w-full flex items-center gap-4 px-5 py-4 rounded-2xl text-xs font-black uppercase tracking-widest transition-all ${
-                          view === 'Applications' ? 'bg-blue-50 text-blue-600 border border-blue-100' : 'bg-transparent text-slate-600 hover:bg-slate-50 border border-transparent'
-                        }`}
-                      >
-                        <BookmarkCheck size={18} /> My Applications
-                      </button>
-                      <button 
-                        onClick={() => { setView('Saved'); setIsMenuOpen(false); }}
-                        className={`w-full flex items-center gap-4 px-5 py-4 rounded-2xl text-xs font-black uppercase tracking-widest transition-all ${
-                          view === 'Saved' ? 'bg-rose-50 text-rose-600 border border-rose-100' : 'bg-transparent text-slate-600 hover:bg-slate-50 border border-transparent'
-                        }`}
-                      >
-                        <Heart size={18} className={savedIds.length > 0 ? "fill-current" : ""} /> Saved
-                      </button>
-                      <button 
-                        onClick={() => { setView('StudyAbroad'); setIsMenuOpen(false); }}
-                        className={`w-full flex items-center gap-4 px-5 py-4 rounded-2xl text-xs font-black uppercase tracking-widest transition-all ${
-                          view === 'StudyAbroad' ? 'bg-indigo-50 text-indigo-600 border border-indigo-100' : 'bg-transparent text-slate-600 hover:bg-slate-50 border border-transparent'
-                        }`}
-                      >
-                        <Plane size={18} /> Study Abroad
-                      </button>
-                    </div>
-                  </div>
-
-                  <div>
-                    <p className="text-[10px] font-black uppercase tracking-widest text-slate-400 mb-3 ml-2">Account</p>
-                    <div className="space-y-2">
-                      <button 
-                        onClick={() => { setView('Profile'); setIsMenuOpen(false); }}
-                        className={`w-full flex items-center gap-4 px-5 py-4 rounded-2xl text-xs font-black uppercase tracking-widest transition-all ${
-                          view === 'Profile' ? 'bg-blue-50 text-blue-600 border border-blue-100' : 'bg-transparent text-slate-600 hover:bg-slate-50 border border-transparent'
-                        }`}
-                      >
-                        <User size={18} /> My Profile
-                      </button>
-                      {isAdmin && (
-                        <button 
-                          onClick={() => { setIsAdminPortalOpen(true); setIsMenuOpen(false); }}
-                          className="w-full flex items-center gap-4 px-5 py-4 rounded-2xl text-xs font-black uppercase tracking-widest transition-all bg-emerald-50 text-emerald-600 border border-emerald-100"
-                        >
-                          <LayoutDashboard size={18} /> Admin Panel
-                        </button>
-                      )}
-                    </div>
-                  </div>
-                </div>
-
-                <div className="p-6 border-t border-slate-100 bg-slate-50">
-                  <button 
-                    onClick={() => { setShowLogoutConfirm(true); setIsMenuOpen(false); }}
-                    className="w-full flex items-center justify-center gap-3 px-6 py-4 bg-white border border-slate-200 text-slate-900 rounded-2xl text-xs font-black uppercase tracking-widest hover:bg-slate-100 transition-all shadow-sm"
-                  >
-                    <LogOut size={16} /> Logout
-                  </button>
-                </div>
-              </motion.div>
-            </>
-          )}
-        </AnimatePresence>
       </nav>
+
+      {/* Mobile Menu Overlay */}
+      <AnimatePresence>
+        {isMenuOpen && (
+          <>
+            <motion.div
+              initial={{ opacity: 0 }}
+              animate={{ opacity: 1 }}
+              exit={{ opacity: 0 }}
+              onClick={() => setIsMenuOpen(false)}
+              className="fixed inset-0 bg-slate-900/40 backdrop-blur-sm z-[100] lg:hidden"
+            />
+            <motion.div
+              initial={{ x: '100%' }}
+              animate={{ x: 0 }}
+              exit={{ x: '100%' }}
+              transition={{ type: 'spring', damping: 25, stiffness: 200 }}
+              className="fixed top-0 right-0 bottom-0 w-[85vw] max-w-sm bg-white z-[101] lg:hidden flex flex-col shadow-2xl border-l border-slate-100"
+            >
+              <div className="p-6 flex items-center justify-between border-b border-slate-100">
+                <Logo size={32} showText={true} />
+                <button 
+                  onClick={() => setIsMenuOpen(false)}
+                  className="p-2.5 bg-slate-50 text-slate-900 rounded-xl border border-slate-100 hover:bg-slate-100 transition-colors"
+                >
+                  <X size={20} />
+                </button>
+              </div>
+              
+              <div className="flex-1 overflow-y-auto p-6 space-y-6">
+                <div>
+                  <p className="text-[10px] font-black uppercase tracking-widest text-slate-400 mb-3 ml-2">Navigation</p>
+                  <div className="space-y-2">
+                    <button 
+                      onClick={() => { setView('Results'); setIsMenuOpen(false); }}
+                      className={`w-full flex items-center gap-4 px-5 py-4 rounded-2xl text-xs font-black uppercase tracking-widest transition-all ${
+                        view === 'Results' ? 'bg-blue-50 text-blue-600 border border-blue-100' : 'bg-transparent text-slate-600 hover:bg-slate-50 border border-transparent'
+                      }`}
+                    >
+                      <Search size={18} /> Find Scholarships
+                    </button>
+                    <button 
+                      onClick={() => { setView('Dashboard'); setIsMenuOpen(false); }}
+                      className={`w-full flex items-center gap-4 px-5 py-4 rounded-2xl text-xs font-black uppercase tracking-widest transition-all ${
+                        view === 'Dashboard' ? 'bg-blue-50 text-blue-600 border border-blue-100' : 'bg-transparent text-slate-600 hover:bg-slate-50 border border-transparent'
+                      }`}
+                    >
+                      <LayoutDashboard size={18} /> Dashboard
+                    </button>
+                    <button 
+                      onClick={() => { setView('Applications'); setIsMenuOpen(false); }}
+                      className={`w-full flex items-center gap-4 px-5 py-4 rounded-2xl text-xs font-black uppercase tracking-widest transition-all ${
+                        view === 'Applications' ? 'bg-blue-50 text-blue-600 border border-blue-100' : 'bg-transparent text-slate-600 hover:bg-slate-50 border border-transparent'
+                      }`}
+                    >
+                      <BookmarkCheck size={18} /> My Applications
+                    </button>
+                    <button 
+                      onClick={() => { setView('Saved'); setIsMenuOpen(false); }}
+                      className={`w-full flex items-center gap-4 px-5 py-4 rounded-2xl text-xs font-black uppercase tracking-widest transition-all ${
+                        view === 'Saved' ? 'bg-rose-50 text-rose-600 border border-rose-100' : 'bg-transparent text-slate-600 hover:bg-slate-50 border border-transparent'
+                      }`}
+                    >
+                      <Heart size={18} className={savedIds.length > 0 ? "fill-current" : ""} /> Saved
+                    </button>
+                    <button 
+                      onClick={() => { setView('StudyAbroad'); setIsMenuOpen(false); }}
+                      className={`w-full flex items-center gap-4 px-5 py-4 rounded-2xl text-xs font-black uppercase tracking-widest transition-all ${
+                        view === 'StudyAbroad' ? 'bg-indigo-50 text-indigo-600 border border-indigo-100' : 'bg-transparent text-slate-600 hover:bg-slate-50 border border-transparent'
+                      }`}
+                    >
+                      <Plane size={18} /> Study Abroad
+                    </button>
+                  </div>
+                </div>
+
+                <div>
+                  <p className="text-[10px] font-black uppercase tracking-widest text-slate-400 mb-3 ml-2">Account</p>
+                  <div className="space-y-2">
+                    <button 
+                      onClick={() => { setView('Profile'); setIsMenuOpen(false); }}
+                      className={`w-full flex items-center gap-4 px-5 py-4 rounded-2xl text-xs font-black uppercase tracking-widest transition-all ${
+                        view === 'Profile' ? 'bg-blue-50 text-blue-600 border border-blue-100' : 'bg-transparent text-slate-600 hover:bg-slate-50 border border-transparent'
+                      }`}
+                    >
+                      <User size={18} /> My Profile
+                    </button>
+                    {isAdmin && (
+                      <button 
+                        onClick={() => { setIsAdminPortalOpen(true); setIsMenuOpen(false); }}
+                        className="w-full flex items-center gap-4 px-5 py-4 rounded-2xl text-xs font-black uppercase tracking-widest transition-all bg-emerald-50 text-emerald-600 border border-emerald-100"
+                      >
+                        <LayoutDashboard size={18} /> Admin Panel
+                      </button>
+                    )}
+                  </div>
+                </div>
+              </div>
+
+              <div className="p-6 border-t border-slate-100 bg-slate-50">
+                <button 
+                  onClick={() => { setShowLogoutConfirm(true); setIsMenuOpen(false); }}
+                  className="w-full flex items-center justify-center gap-3 px-6 py-4 bg-white border border-slate-200 text-slate-900 rounded-2xl text-xs font-black uppercase tracking-widest hover:bg-slate-100 transition-all shadow-sm"
+                >
+                  <LogOut size={16} /> Logout
+                </button>
+              </div>
+            </motion.div>
+          </>
+        )}
+      </AnimatePresence>
 
       <main className="max-w-7xl mx-auto px-4 md:px-6 py-6 md:py-12 relative z-10">
         <AnimatePresence mode="wait">
@@ -775,12 +783,12 @@ export default function App() {
                   <div className="w-20 h-20 bg-blue-50 text-blue-600 rounded-3xl flex items-center justify-center mx-auto mb-6">
                     <User size={40} />
                   </div>
-                  <h3 className="text-2xl font-black text-slate-900 mb-2">Welcome back, {profile.fullName?.split(' ')[0] || 'User'}!</h3>
+                  <h3 className="text-2xl font-black text-slate-900 mb-2">Welcome back, {profile.preferredName || profile.fullName?.split(' ')[0] || 'User'}!</h3>
                   <p className="text-slate-500 font-medium mb-8">Your profile is saved and ready. We can find the latest scholarships matching your details.</p>
                   
                   <div className="flex flex-col sm:flex-row gap-4 justify-center">
                     <button 
-                      onClick={() => { setProfile(null); setView('Profile'); }}
+                      onClick={() => setView('Profile')}
                       className="px-8 py-4 bg-slate-100 text-slate-900 rounded-2xl text-sm font-black uppercase tracking-widest hover:bg-slate-200 transition-all"
                     >
                       Edit Profile
@@ -978,7 +986,7 @@ export default function App() {
               animate={{ opacity: 1, x: 0 }}
               exit={{ opacity: 0, x: -20 }}
             >
-              {profile && (
+              {profile ? (
                 <UserProfileView 
                   profile={profile}
                   results={results}
@@ -994,6 +1002,14 @@ export default function App() {
                   isLoading={isLoading}
                   onBack={() => setView('Results')}
                 />
+              ) : (
+                <div className="max-w-4xl mx-auto">
+                  <div className="mb-8">
+                    <h2 className="text-3xl font-black text-slate-900 mb-2">Create Your Profile</h2>
+                    <p className="text-slate-500 font-medium">Tell us about yourself to find the best scholarships.</p>
+                  </div>
+                  <ProfileForm onSubmit={handleProfileSubmit} onAutoSave={handleAutoSave} isLoading={isLoading} />
+                </div>
               )}
             </motion.div>
           ) : view === 'StudyAbroad' ? (
@@ -1020,7 +1036,7 @@ export default function App() {
                     </h2>
                     <p className="text-slate-400 text-xs md:text-sm font-medium flex items-center gap-2">
                       <MapPin size={14} className="text-rose-400" /> 
-                      Matches for {profile.fullName || 'User'} in {profile.country || 'your country'}
+                      Matches for {profile.preferredName || profile.fullName || 'User'} in {profile.country || 'your country'}
                     </p>
                   </div>
 
@@ -1487,7 +1503,7 @@ export default function App() {
         />
       )}
 
-      <SupportChatbot user={currentUser} />
+      <SupportChatbot user={currentUser} profile={profile} />
 
       {/* Logout Confirmation Modal */}
       <AnimatePresence>

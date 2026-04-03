@@ -8,8 +8,10 @@ export interface User {
 
 export interface UserProfile {
   fullName: string;
+  preferredName?: string;
   profileImageUrl?: string;
   phoneNumber?: string;
+  dob?: string;
   age: number;
   gender: string;
   educationLevel: 'High School' | 'Undergraduate' | 'Postgraduate' | 'Doctorate';

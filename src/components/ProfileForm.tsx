@@ -14,6 +14,7 @@ export const ProfileForm: React.FC<ProfileFormProps> = ({ onSubmit, isLoading, i
   const [formData, setFormData] = React.useState<UserProfile>(() => {
     const defaults: UserProfile = {
       fullName: '',
+      preferredName: '',
       phoneNumber: '',
       age: '' as any,
       gender: '' as any,
@@ -120,9 +121,32 @@ export const ProfileForm: React.FC<ProfileFormProps> = ({ onSubmit, isLoading, i
     return () => clearTimeout(timer);
   }, [formData, onAutoSave]);
 
+  const calculateAge = (dobString: string) => {
+    if (!dobString) return '';
+    const today = new Date();
+    const birthDate = new Date(dobString);
+    let age = today.getFullYear() - birthDate.getFullYear();
+    const m = today.getMonth() - birthDate.getMonth();
+    if (m < 0 || (m === 0 && today.getDate() < birthDate.getDate())) {
+      age--;
+    }
+    return age;
+  };
+
   const handleChange = (e: React.ChangeEvent<HTMLInputElement | HTMLSelectElement | HTMLTextAreaElement>) => {
     const { name, value } = e.target;
-    setFormData((prev) => ({ ...prev, [name]: name === 'age' ? parseInt(value) : value }));
+    
+    if (name === 'dob') {
+      const calculatedAge = calculateAge(value);
+      setFormData(prev => ({
+        ...prev,
+        dob: value,
+        age: calculatedAge as any
+      }));
+    } else {
+      setFormData((prev) => ({ ...prev, [name]: name === 'age' ? parseInt(value) : value }));
+    }
+    
     if (name === 'pincode') setLookupError(null);
   };
 
@@ -342,6 +366,19 @@ export const ProfileForm: React.FC<ProfileFormProps> = ({ onSubmit, isLoading, i
 
           <div className="space-y-1">
             <label className={labelClasses('text-rose-500')}>
+              Your Name (Preferred)
+            </label>
+            <input
+              name="preferredName"
+              value={formData.preferredName || ''}
+              onChange={handleChange}
+              className={inputClasses}
+              placeholder="What should we call you?"
+            />
+          </div>
+
+          <div className="space-y-1">
+            <label className={labelClasses('text-rose-500')}>
               Phone Number
             </label>
             <input
@@ -350,6 +387,36 @@ export const ProfileForm: React.FC<ProfileFormProps> = ({ onSubmit, isLoading, i
               onChange={handleChange}
               className={inputClasses}
               placeholder="e.g. +91 98765 43210"
+            />
+          </div>
+
+          <div className="space-y-1">
+            <label className={labelClasses('text-rose-500', true)}>
+              Date of Birth
+            </label>
+            <input
+              type="date"
+              required
+              name="dob"
+              value={formData.dob || ''}
+              onChange={handleChange}
+              className={inputClasses}
+            />
+          </div>
+
+          <div className="space-y-1">
+            <label className={labelClasses('text-rose-500', true)}>
+              Age
+            </label>
+            <input
+              type="number"
+              required
+              name="age"
+              value={formData.age || ''}
+              onChange={handleChange}
+              readOnly
+              className={`${inputClasses} bg-slate-100 cursor-not-allowed`}
+              placeholder="Auto-calculated from DOB"
             />
           </div>
 

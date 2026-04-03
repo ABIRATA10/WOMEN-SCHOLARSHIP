@@ -107,7 +107,9 @@ export const UserProfileView: React.FC<UserProfileViewProps> = ({
             </button>
           </div>
           <div>
-            <h2 className="text-3xl font-black text-slate-900 tracking-tight">{profile.fullName}</h2>
+            <h2 className="text-3xl font-black text-slate-900 tracking-tight">
+              {profile.preferredName ? `${profile.preferredName} (${profile.fullName})` : profile.fullName}
+            </h2>
             <p className="text-slate-400 font-medium flex items-center justify-center sm:justify-start gap-2 mt-1">
               <MapPin size={14} className="text-rose-400" /> {profile.state}, {profile.country}
             </p>
@@ -217,6 +219,10 @@ export const UserProfileView: React.FC<UserProfileViewProps> = ({
                 </div>
                 <div className="space-y-4">
                   <div className="flex justify-between py-3 border-b border-slate-50">
+                    <span className="text-xs font-bold text-slate-400 uppercase tracking-wider">Date of Birth</span>
+                    <span className="text-sm font-bold text-slate-700">{profile.dob || 'N/A'}</span>
+                  </div>
+                  <div className="flex justify-between py-3 border-b border-slate-50">
                     <span className="text-xs font-bold text-slate-400 uppercase tracking-wider">Age</span>
                     <span className="text-sm font-bold text-slate-700">{profile.age}</span>
                   </div>
@@ -314,7 +320,7 @@ export const UserProfileView: React.FC<UserProfileViewProps> = ({
               }} 
               onAutoSave={onAutoSave}
               isLoading={isLoading} 
-              initialData={null} 
+              initialData={profile} 
             />
           </motion.div>
         )}

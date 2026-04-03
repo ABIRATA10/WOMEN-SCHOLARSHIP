@@ -3,7 +3,7 @@ import { GoogleGenAI } from "@google/genai";
 import { motion, AnimatePresence } from 'motion/react';
 import { MessageCircle, X, Send, Bot, User, Loader2, HelpCircle, AlertTriangle, Info, Menu } from 'lucide-react';
 import ReactMarkdown from 'react-markdown';
-import { User as UserType } from '../types';
+import { User as UserType, UserProfile } from '../types';
 
 const ZigIcon = ({ size = 24 }: { size?: number }) => (
   <svg 
@@ -28,9 +28,10 @@ interface Message {
 
 interface SupportChatbotProps {
   user: UserType | null;
+  profile?: UserProfile | null;
 }
 
-export const SupportChatbot: React.FC<SupportChatbotProps> = ({ user }) => {
+export const SupportChatbot: React.FC<SupportChatbotProps> = ({ user, profile }) => {
   const [isOpen, setIsOpen] = useState(false);
   
   const getGreeting = () => {
@@ -39,7 +40,7 @@ export const SupportChatbot: React.FC<SupportChatbotProps> = ({ user }) => {
     if (hour < 12) timeOfDay = 'morning';
     else if (hour < 18) timeOfDay = 'afternoon';
     
-    const name = user?.fullName?.split(' ')[0] || 'there';
+    const name = profile?.preferredName || profile?.fullName?.split(' ')[0] || user?.fullName?.split(' ')[0] || 'there';
     return `Hi ${name}, good ${timeOfDay}! How can I help you?`;
   };
 
@@ -87,7 +88,7 @@ export const SupportChatbot: React.FC<SupportChatbotProps> = ({ user }) => {
         config: {
           systemInstruction: `
             You are "Zig", the official AI Scholarship Advisor and Mentor for MeritUs.
-            The user you are talking to is named ${user?.fullName || 'User'}. Always address them by their name occasionally to make it personal.
+            The user you are talking to is named ${profile?.preferredName || profile?.fullName || user?.fullName || 'User'}. Always address them by their name occasionally to make it personal.
             
             Your Persona:
             - **Empowering & Professional**: You are a highly knowledgeable mentor. You believe in the potential of every student and provide strategic, actionable advice to help them secure funding.

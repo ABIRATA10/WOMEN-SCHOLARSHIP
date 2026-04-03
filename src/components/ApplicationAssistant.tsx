@@ -27,6 +27,7 @@ export const ApplicationAssistant: React.FC<ApplicationAssistantProps> = ({ prof
 
   const fields = [
     { label: 'Full Name', value: profile.fullName, icon: <User size={14} /> },
+    ...(profile.preferredName ? [{ label: 'Preferred Name', value: profile.preferredName, icon: <User size={14} /> }] : []),
     { label: 'Education', value: profile.educationLevel, icon: <GraduationCap size={14} /> },
     { label: 'Field of Study', value: profile.fieldOfStudy, icon: <BookOpen size={14} /> },
     { label: 'GPA', value: profile.gpa, icon: <Sparkles size={14} /> },

@@ -90,6 +90,7 @@ export const NotificationManager: React.FC = () => {
 
   const markAllAsRead = () => {
     setNotifications(prev => prev.map(n => ({ ...n, read: true })));
+    setIsOpen(false);
   };
 
   const unreadCount = notifications.filter(n => !n.read).length;

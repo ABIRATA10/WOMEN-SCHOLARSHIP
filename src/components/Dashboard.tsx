@@ -86,7 +86,7 @@ export const Dashboard: React.FC<DashboardProps> = ({
     };
 
     results.forEach(r => {
-      const text = (r.match.reasoning + ' ' + r.scholarship.description).toLowerCase();
+      const text = ((r.match?.reasoning || '') + ' ' + (r.scholarship?.description || '')).toLowerCase();
       if (text.includes('stem') || text.includes('science') || text.includes('tech')) keywords['STEM']++;
       if (text.includes('merit') || text.includes('academic') || text.includes('gpa')) keywords['Merit']++;
       if (text.includes('income') || text.includes('need') || text.includes('financial')) keywords['Need-based']++;
@@ -579,6 +579,7 @@ export const Dashboard: React.FC<DashboardProps> = ({
                       animate={{ opacity: 1, x: 0 }}
                       transition={{ delay: i * 0.1 }}
                       className="bg-white p-5 rounded-2xl border border-slate-100 shadow-sm hover:shadow-xl hover:shadow-slate-100 transition-all group cursor-pointer"
+                      onClick={() => window.open(r.scholarship.link, '_blank')}
                     >
                       <p className="text-sm font-black text-slate-900 line-clamp-2 group-hover:text-blue-600 transition-colors leading-snug">{r.scholarship.title}</p>
                       <p className="text-[10px] text-slate-400 font-bold mt-2 uppercase tracking-wider">{r.scholarship.provider}</p>

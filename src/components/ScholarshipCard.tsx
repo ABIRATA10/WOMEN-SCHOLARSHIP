@@ -421,7 +421,7 @@ export const ScholarshipCard: React.FC<ScholarshipCardProps> = ({
                       </span>
                     </div>
                     <p className="text-xs text-slate-600 italic leading-relaxed font-medium">
-                      "{match.reasoning}"
+                      "{match?.reasoning || 'Great match for your profile'}"
                     </p>
                   </div>
                 )}

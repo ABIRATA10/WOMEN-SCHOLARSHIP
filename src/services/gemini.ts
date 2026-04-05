@@ -92,6 +92,90 @@ const ai = new GoogleGenAI({ apiKey });
 
 const API_URL = import.meta.env.VITE_API_URL || '';
 
+export async function smartScholarshipMatchEmbeddings(
+  userProfile: UserProfile
+): Promise<ScholarshipMatch[]> {
+  try {
+    const allScholarships = getFallbackScholarships(userProfile).map(s => s.scholarship);
+    
+    if (allScholarships.length === 0) return [];
+
+    // 1. Prepare texts for embedding
+    const userProfileText = `
+      Student Profile:
+      Education: ${userProfile.educationLevel} in ${userProfile.fieldOfStudy}
+      GPA/Marks: ${userProfile.gpa}
+      Location: ${userProfile.state}, ${userProfile.country}
+      Gender: ${userProfile.gender}
+      Income Bracket: ${userProfile.incomeBracket}
+      Career Goals: ${userProfile.careerGoals}
+      Background: ${userProfile.background}
+    `;
+
+    const scholarshipTexts = allScholarships.map(s => `
+      Scholarship: ${s.title}
+      Provider: ${s.provider}
+      Description: ${s.description}
+      Eligibility: ${s.eligibilityCriteria}
+      Target: ${s.targetCommunity}
+      Location: ${s.location}
+      Gender: ${s.genderSpecific}
+    `);
+
+    // 2. Generate embeddings in a single call
+    const contents = [userProfileText, ...scholarshipTexts];
+    
+    const result = await ai.models.embedContent({
+      model: 'gemini-embedding-2-preview',
+      contents: contents,
+    });
+
+    const embeddings = result.embeddings;
+    if (!embeddings || embeddings.length !== contents.length) {
+      throw new Error("Failed to generate embeddings for all items.");
+    }
+
+    const userEmbedding = embeddings[0].values;
+    const scholarshipEmbeddings = embeddings.slice(1);
+
+    // 3. Calculate cosine similarity
+    const cosineSimilarity = (vecA: number[], vecB: number[]) => {
+      let dotProduct = 0;
+      let normA = 0;
+      let normB = 0;
+      for (let i = 0; i < vecA.length; i++) {
+        dotProduct += vecA[i] * vecB[i];
+        normA += vecA[i] * vecA[i];
+        normB += vecB[i] * vecB[i];
+      }
+      if (normA === 0 || normB === 0) return 0;
+      return dotProduct / (Math.sqrt(normA) * Math.sqrt(normB));
+    };
+
+    const scoredScholarships = allScholarships.map((scholarship, index) => {
+      const score = cosineSimilarity(userEmbedding, scholarshipEmbeddings[index].values);
+      return {
+        scholarship,
+        match: {
+          scholarshipId: scholarship.id,
+          matchScore: Math.round(score * 100),
+          reasoning: "Matched using AI semantic embeddings based on your profile and career goals.",
+          localCurrencyAmount: scholarship.amount
+        }
+      };
+    });
+
+    // 4. Sort by highest similarity and return top 20
+    scoredScholarships.sort((a, b) => b.match.matchScore - a.match.matchScore);
+    return scoredScholarships.slice(0, 20);
+
+  } catch (error) {
+    console.error("Error in smartScholarshipMatchEmbeddings:", error);
+    // Fallback to standard matching if embeddings fail
+    return getFallbackScholarships(userProfile);
+  }
+}
+
 export async function findScholarships(
   userProfile: UserProfile
 ): Promise<ScholarshipMatch[]> {

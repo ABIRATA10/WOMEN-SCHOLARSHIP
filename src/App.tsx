@@ -11,12 +11,14 @@ import { AdminPortal } from './components/AdminPortal';
 import { StudyAbroad } from './components/StudyAbroad';
 import { InstallPWA } from './components/InstallPWA';
 import { UserProfile, Scholarship, MatchResult, User as UserType, ScholarshipMatch, Application, ApplicationStatus, Reminder } from './types';
-import { findScholarships } from './services/gemini';
+import { findScholarships, smartScholarshipMatchEmbeddings } from './services/gemini';
 import { Sparkles, GraduationCap, Filter, Search, ArrowLeft, ArrowRight, Globe, MapPin, User, LogOut, LayoutDashboard, BookmarkCheck, Heart, Bot, AlertTriangle, Clock, RefreshCw, History, Bell, Menu, X, Plane } from 'lucide-react';
 import { motion, AnimatePresence } from 'motion/react';
 import { Logo } from './components/Logo';
 import { useLanguage } from './contexts/LanguageContext';
 import { LOCAL_SCHOLARSHIP_DATA } from './constants/scholarshipData';
+
+import { ErrorBoundary } from './components/ErrorBoundary';
 
 const API_URL = import.meta.env.VITE_API_URL || '';
 
@@ -198,6 +200,21 @@ export default function App() {
       setResults(searchResults);
     } catch (err: any) {
       setError(err.message || "An unexpected error occurred.");
+      setResults([]);
+    } finally {
+      setIsLoading(false);
+    }
+  };
+
+  const handleSmartMatch = async () => {
+    if (!profile) return;
+    setIsLoading(true);
+    setError(null);
+    try {
+      const searchResults = await smartScholarshipMatchEmbeddings(profile);
+      setResults(searchResults);
+    } catch (err: any) {
+      setError(err.message || "An unexpected error occurred during smart match.");
       setResults([]);
     } finally {
       setIsLoading(false);
@@ -551,7 +568,12 @@ export default function App() {
                       : 'bg-white text-slate-900 border border-slate-100 shadow-slate-200 hover:bg-slate-50'
                   }`}
                 >
-                  <User size={14} /> {view === 'Profile' ? 'Back to Results' : 'My Profile'}
+                  {profile?.profileImageUrl ? (
+                    <img src={profile.profileImageUrl} alt="Profile" className="w-5 h-5 rounded-full object-cover border border-white/50" />
+                  ) : (
+                    <User size={14} />
+                  )}
+                  {view === 'Profile' ? 'Back to Results' : 'My Profile'}
                 </button>
                 {isAdmin && (
                   <button 
@@ -583,10 +605,14 @@ export default function App() {
                 <NotificationManager />
                 <button 
                   onClick={() => setView('Profile')}
-                  className="p-2.5 bg-blue-50 text-blue-600 rounded-xl border border-blue-100 hover:bg-blue-100 transition-colors"
+                  className="p-2 bg-blue-50 text-blue-600 rounded-xl border border-blue-100 hover:bg-blue-100 transition-colors overflow-hidden"
                   aria-label="Edit Profile"
                 >
-                  <User size={20} />
+                  {profile?.profileImageUrl ? (
+                    <img src={profile.profileImageUrl} alt="Profile" className="w-6 h-6 rounded-lg object-cover" />
+                  ) : (
+                    <User size={20} className="m-0.5" />
+                  )}
                 </button>
                 <button 
                   onClick={() => setIsMenuOpen(!isMenuOpen)}
@@ -713,7 +739,8 @@ export default function App() {
       </AnimatePresence>
 
       <main className="max-w-7xl mx-auto px-4 md:px-6 py-6 md:py-12 relative z-10">
-        <AnimatePresence mode="wait">
+        <ErrorBoundary>
+          <AnimatePresence mode="wait">
           {view === 'Landing' ? (
             <motion.div
               key="landing"
@@ -989,6 +1016,14 @@ export default function App() {
                       </div>
                       <div className="flex gap-2">
                         <button
+                          onClick={() => profile && handleSmartMatch()}
+                          className="px-4 py-3 bg-gradient-to-r from-blue-600 to-indigo-600 hover:from-blue-700 hover:to-indigo-700 text-white rounded-2xl transition-all shadow-md shadow-blue-500/20 flex items-center justify-center gap-2 flex-grow sm:flex-grow-0 text-xs font-bold"
+                          title="Smart Match using AI Embeddings"
+                        >
+                          <Sparkles size={16} />
+                          Smart Match
+                        </button>
+                        <button
                           onClick={() => profile && handleProfileSubmit(profile)}
                           className="p-3 bg-white border border-slate-100 hover:border-blue-200 text-slate-400 hover:text-blue-600 rounded-2xl transition-all shadow-sm flex items-center justify-center flex-grow sm:flex-grow-0"
                           title="Refresh search results"
@@ -997,7 +1032,7 @@ export default function App() {
                             animate={isLoading ? { rotate: 360 } : {}}
                             transition={{ repeat: Infinity, duration: 1, ease: "linear" }}
                           >
-                            <Sparkles size={18} />
+                            <RefreshCw size={18} />
                           </motion.div>
                         </button>
                         <button
@@ -1428,6 +1463,7 @@ export default function App() {
             </motion.div>
           )}
         </AnimatePresence>
+        </ErrorBoundary>
       </main>
 
       {profile && (

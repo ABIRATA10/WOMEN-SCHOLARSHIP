@@ -123,7 +123,7 @@ export const RecommendationCard: React.FC<RecommendationCardProps> = ({
             <span className="text-[10px] font-black uppercase tracking-widest">AI Insight</span>
           </div>
           <p className="text-xs text-slate-600 leading-relaxed font-medium italic">
-            "{matchDetails.reasoning.split('.')[0]}."
+            "{matchDetails?.reasoning?.split('.')[0] || 'Great match for your profile'}."
           </p>
         </div>
       </div>

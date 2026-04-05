@@ -112,7 +112,7 @@ export const Dashboard: React.FC<DashboardProps> = ({
 
     results.forEach(r => {
       // Amount calculation
-      const amountStr = r.scholarship.amount.replace(/[^0-9]/g, '');
+      const amountStr = (r.scholarship?.amount || '').replace(/[^0-9]/g, '');
       const amount = parseInt(amountStr);
       if (!isNaN(amount)) {
         totalAmount += amount;
@@ -120,11 +120,11 @@ export const Dashboard: React.FC<DashboardProps> = ({
       }
 
       // Deadline calculation
-      const deadline = r.scholarship.deadline.toLowerCase();
+      const deadline = (r.scholarship?.deadline || '').toLowerCase();
       if (deadline.includes('rolling')) {
         rollingCount++;
-      } else {
-        const date = new Date(r.scholarship.deadline);
+      } else if (deadline) {
+        const date = new Date(deadline);
         if (!isNaN(date.getTime())) {
           if (!earliestDate || date < earliestDate) {
             earliestDate = date;

@@ -197,7 +197,7 @@ export default function App() {
     setView('Results');
     try {
       const searchResults = await findScholarships(newProfile);
-      setResults(searchResults);
+      setResults(searchResults || []);
     } catch (err: any) {
       setError(err.message || "An unexpected error occurred.");
       setResults([]);
@@ -212,7 +212,7 @@ export default function App() {
     setError(null);
     try {
       const searchResults = await smartScholarshipMatchEmbeddings(profile);
-      setResults(searchResults);
+      setResults(searchResults || []);
     } catch (err: any) {
       setError(err.message || "An unexpected error occurred during smart match.");
       setResults([]);
@@ -225,14 +225,16 @@ export default function App() {
     setProfile(newProfile);
   };
 
-  const parseDeadline = (deadline: string): number => {
+  const parseDeadline = (deadline: string | undefined): number => {
+    if (!deadline) return 4102444800000;
     const d = deadline.toLowerCase();
     if (d.includes('rolling') || d.includes('upcoming')) return 4102444800000; // Year 2100
     const date = new Date(deadline);
     return isNaN(date.getTime()) ? 4102444800000 : date.getTime();
   };
 
-  const parseAmount = (amountStr: string): number => {
+  const parseAmount = (amountStr: string | undefined): number => {
+    if (!amountStr) return 0;
     const numericStr = amountStr.replace(/[^0-9.]/g, '');
     return parseFloat(numericStr) || 0;
   };
@@ -240,6 +242,8 @@ export default function App() {
   const filteredResults = results.filter(r => {
     const s = r.scholarship;
     const m = r.match;
+    if (!s || !m) return false;
+    
     const matchesFilter = filter === 'All' || s.category === filter;
     const matchesScope = scopeFilter === 'All' || 
                          s.scope === scopeFilter || 
@@ -250,7 +254,7 @@ export default function App() {
     const matchesType = typeFilter === 'All' || s.type === typeFilter;
     const matchesCommunityOnly = !communityOnly || (s.targetCommunity && s.targetCommunity.toLowerCase() !== 'general' && s.targetCommunity.toLowerCase() !== 'none');
     
-    const matchesProvider = providerFilter === 'All' || s.provider.toLowerCase().includes(providerFilter.toLowerCase());
+    const matchesProvider = providerFilter === 'All' || (s.provider && s.provider.toLowerCase().includes(providerFilter.toLowerCase()));
     const matchesCommunity = communityFilter === 'All' || (s.targetCommunity && s.targetCommunity.toLowerCase().includes(communityFilter.toLowerCase()));
     
     const matchesFullyFunded = !fullyFundedOnly || s.fullyFunded === true;
@@ -276,13 +280,13 @@ export default function App() {
       if (deadlineFilter === 'Closing Soon') matchesDeadline = deadline > now && deadline <= now + oneMonth;
       else if (deadlineFilter === 'Next 3 Months') matchesDeadline = deadline > now && deadline <= now + threeMonths;
       else if (deadlineFilter === 'Next 6 Months') matchesDeadline = deadline > now && deadline <= now + sixMonths;
-      else if (deadlineFilter === 'Rolling/Upcoming') matchesDeadline = s.deadline.toLowerCase().includes('rolling') || s.deadline.toLowerCase().includes('upcoming');
+      else if (deadlineFilter === 'Rolling/Upcoming') matchesDeadline = s.deadline && (s.deadline.toLowerCase().includes('rolling') || s.deadline.toLowerCase().includes('upcoming'));
     }
 
-    const matchesSearch = s.title.toLowerCase().includes(searchQuery.toLowerCase()) || 
-                         s.provider.toLowerCase().includes(searchQuery.toLowerCase()) ||
-                         s.description.toLowerCase().includes(searchQuery.toLowerCase()) ||
-                         s.eligibilityCriteria.toLowerCase().includes(searchQuery.toLowerCase()) ||
+    const matchesSearch = (s.title && s.title.toLowerCase().includes(searchQuery.toLowerCase())) || 
+                         (s.provider && s.provider.toLowerCase().includes(searchQuery.toLowerCase())) ||
+                         (s.description && s.description.toLowerCase().includes(searchQuery.toLowerCase())) ||
+                         (s.eligibilityCriteria && s.eligibilityCriteria.toLowerCase().includes(searchQuery.toLowerCase())) ||
                          (s.targetCommunity && s.targetCommunity.toLowerCase().includes(searchQuery.toLowerCase()));
     
     return matchesFilter && matchesScope && matchesMajor && matchesGpa && matchesLocation && 
@@ -296,7 +300,7 @@ export default function App() {
     }
 
     // Primary sort: Scope (State > National > Global)
-    const scopePriority = { 'State': 1, 'National': 2, 'Global': 3 };
+    const scopePriority = { 'State': 1, 'National': 2, 'Global': 3 } as Record<string, number>;
     const scopeA = scopePriority[a.scholarship.scope] || 4;
     const scopeB = scopePriority[b.scholarship.scope] || 4;
     
@@ -306,18 +310,18 @@ export default function App() {
 
     // Secondary sort: Match Score, Deadline, or Amount
     if (sortBy === 'Match') {
-      return b.match.matchScore - a.match.matchScore;
+      return (b.match?.matchScore || 0) - (a.match?.matchScore || 0);
     }
     if (sortBy === 'AmountDesc') {
-      const amountA = parseAmount(a.match.localCurrencyAmount || a.scholarship.amount);
-      const amountB = parseAmount(b.match.localCurrencyAmount || b.scholarship.amount);
+      const amountA = parseAmount(a.match?.localCurrencyAmount || a.scholarship.amount);
+      const amountB = parseAmount(b.match?.localCurrencyAmount || b.scholarship.amount);
       return amountB - amountA;
     }
     const dateA = parseDeadline(a.scholarship.deadline);
     const dateB = parseDeadline(b.scholarship.deadline);
     if (sortBy === 'DeadlineAsc') return dateA - dateB;
     if (sortBy === 'DeadlineDesc') return dateB - dateA;
-    if (sortBy === 'ProviderAsc') return a.scholarship.provider.localeCompare(b.scholarship.provider);
+    if (sortBy === 'ProviderAsc') return (a.scholarship.provider || '').localeCompare(b.scholarship.provider || '');
     return 0;
   });
 
@@ -326,7 +330,7 @@ export default function App() {
     if (!existing) {
       handleUpdateApplicationStatus(id, 'In Progress');
       if (currentUser?.email) {
-        let scholarship = results.find(r => r.scholarship.id === id)?.scholarship;
+        let scholarship = results.find(r => r && r.scholarship && r.scholarship.id === id)?.scholarship;
         if (!scholarship) {
           const localMatch = LOCAL_SCHOLARSHIP_DATA.split('\n').slice(1).find(line => line.split(',')[0] === id);
           if (localMatch) {
@@ -385,7 +389,7 @@ export default function App() {
     setSavedIds(prev => {
       const isSaving = !prev.includes(id);
       if (isSaving && currentUser?.email) {
-        let scholarship = results.find(r => r.scholarship.id === id)?.scholarship;
+        let scholarship = results.find(r => r && r.scholarship && r.scholarship.id === id)?.scholarship;
         if (!scholarship) {
           const localMatch = LOCAL_SCHOLARSHIP_DATA.split('\n').slice(1).find(line => line.split(',')[0] === id);
           if (localMatch) {
@@ -849,7 +853,7 @@ export default function App() {
               {applications.length > 0 ? (
                 <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-8">
                   {results
-                    .filter(r => applications.some(a => a.scholarshipId === r.scholarship.id))
+                    .filter(r => r && r.scholarship && applications.some(a => a.scholarshipId === r.scholarship.id))
                     .map((result, index) => (
                       <ScholarshipCard
                         key={`${result.scholarship.id}-${index}`}
@@ -907,7 +911,7 @@ export default function App() {
               {savedIds.length > 0 ? (
                 <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-8">
                   {results
-                    .filter(r => savedIds.includes(r.scholarship.id))
+                    .filter(r => r && r.scholarship && savedIds.includes(r.scholarship.id))
                     .map((result, index) => (
                       <ScholarshipCard
                         key={`${result.scholarship.id}-${index}`}

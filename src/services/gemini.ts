@@ -337,9 +337,10 @@ export async function getRecommendations(
   applications: Application[]
 ): Promise<ScholarshipMatch[]> {
   try {
-    const viewedScholarships = results.filter(r => viewedIds.includes(r.scholarship.id));
-    const savedScholarships = results.filter(r => savedIds.includes(r.scholarship.id));
-    const appliedScholarships = results.filter(r => applications.some(a => a.scholarshipId === r.scholarship.id));
+    const validResults = results.filter(r => r && r.scholarship);
+    const viewedScholarships = validResults.filter(r => viewedIds.includes(r.scholarship.id));
+    const savedScholarships = validResults.filter(r => savedIds.includes(r.scholarship.id));
+    const appliedScholarships = validResults.filter(r => applications.some(a => a.scholarshipId === r.scholarship.id));
 
     const context = {
       profile,
@@ -357,7 +358,7 @@ export async function getRecommendations(
     - Already Applied: ${context.applied.join(', ')}
 
     Scholarship List:
-    ${JSON.stringify(results.map(r => ({ id: r.scholarship.id, title: r.scholarship.title, description: r.scholarship.description })))}
+    ${JSON.stringify(validResults.map(r => ({ id: r.scholarship.id, title: r.scholarship.title, description: r.scholarship.description })))}
 
     Return ONLY a JSON array of scholarship IDs. Example: ["id1", "id2", "id3"]`;
 
@@ -370,7 +371,7 @@ export async function getRecommendations(
     });
 
     const recommendedIds = JSON.parse(response.text || "[]") as string[];
-    return results.filter(r => recommendedIds.includes(r.scholarship.id));
+    return validResults.filter(r => recommendedIds.includes(r.scholarship.id));
   } catch (error) {
     console.error("Failed to get recommendations", error);
     return [];

@@ -40,6 +40,9 @@ export const ScholarshipCard: React.FC<ScholarshipCardProps> = ({
   const [reminderTime, setReminderTime] = useState('');
   const [notes, setNotes] = useState(initialNotes);
   const [copied, setCopied] = useState(false);
+  
+  if (!scholarship) return null;
+
   const isHighMatch = match && match.matchScore >= 80;
   const isMediumMatch = match && match.matchScore >= 50 && match.matchScore < 80;
 

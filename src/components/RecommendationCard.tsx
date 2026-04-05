@@ -31,8 +31,10 @@ export const RecommendationCard: React.FC<RecommendationCardProps> = ({
   applicationStatus,
   onUpdateStatus
 }) => {
-  const { scholarship, match: matchDetails } = match;
+  const { scholarship, match: matchDetails } = match || {};
   
+  if (!scholarship || !matchDetails) return null;
+
   const getStatusColor = (status: ApplicationStatus) => {
     switch (status) {
       case 'Awarded': return 'text-emerald-600 bg-emerald-50 border-emerald-100';

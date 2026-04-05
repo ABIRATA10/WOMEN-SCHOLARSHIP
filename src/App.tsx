@@ -9,6 +9,7 @@ import { SupportChatbot } from './components/SupportChatbot';
 import { NotificationManager } from './components/NotificationManager';
 import { AdminPortal } from './components/AdminPortal';
 import { StudyAbroad } from './components/StudyAbroad';
+import { InstallPWA } from './components/InstallPWA';
 import { UserProfile, Scholarship, MatchResult, User as UserType, ScholarshipMatch, Application, ApplicationStatus, Reminder } from './types';
 import { findScholarships } from './services/gemini';
 import { Sparkles, GraduationCap, Filter, Search, ArrowLeft, ArrowRight, Globe, MapPin, User, LogOut, LayoutDashboard, BookmarkCheck, Heart, Bot, AlertTriangle, Clock, RefreshCw, History, Bell, Menu, X, Plane } from 'lucide-react';
@@ -26,33 +27,14 @@ export default function App() {
     if (saved) return JSON.parse(saved);
     return {
       id: 'demo-user-123',
-      email: 'abiratapanda46@gmail.com',
-      fullName: 'Abirata Panda'
+      email: '',
+      fullName: ''
     };
   });
   const [profile, setProfile] = React.useState<UserProfile | null>(() => {
     const saved = localStorage.getItem('scholar_profile');
     if (saved) return JSON.parse(saved);
-    return {
-      fullName: 'Abirata Panda',
-      phoneNumber: '',
-      age: 20,
-      gender: 'Male',
-      educationLevel: 'Undergraduate',
-      yearOfStudy: '2nd Year',
-      institution: 'KIIT University',
-      fieldOfStudy: 'Computer Science',
-      gpa: '8.5',
-      country: 'India',
-      state: 'Odisha',
-      pincode: '751024',
-      address: 'Bhubaneswar, Odisha',
-      caste: 'General',
-      incomeBracket: '5L - 8L',
-      background: 'STEM enthusiast',
-      careerGoals: 'Software Engineer',
-      search_scope: 'All'
-    };
+    return null;
   });
   const [results, setResults] = React.useState<ScholarshipMatch[]>(() => {
     const saved = localStorage.getItem('scholar_results');
@@ -456,32 +438,13 @@ export default function App() {
     localStorage.removeItem('scholar_profile');
     localStorage.removeItem('scholar_results');
     
-    // In demo mode, reset to demo user instead of null
+    // In demo mode, reset to empty demo user instead of null
     setCurrentUser({
       id: 'demo-user-123',
-      email: 'abiratapanda46@gmail.com',
-      fullName: 'Abirata Panda'
+      email: '',
+      fullName: ''
     });
-    setProfile({
-      fullName: 'Abirata Panda',
-      phoneNumber: '',
-      age: 20,
-      gender: 'Male',
-      educationLevel: 'Undergraduate',
-      yearOfStudy: '2nd Year',
-      institution: 'KIIT University',
-      fieldOfStudy: 'Computer Science',
-      gpa: '8.5',
-      country: 'India',
-      state: 'Odisha',
-      pincode: '751024',
-      address: 'Bhubaneswar, Odisha',
-      caste: 'General',
-      incomeBracket: '5L - 8L',
-      background: 'STEM enthusiast',
-      careerGoals: 'Software Engineer',
-      search_scope: 'All'
-    }); 
+    setProfile(null); 
     setResults([]); 
     setView('Landing'); 
     setShowLogoutConfirm(false);
@@ -1476,6 +1439,7 @@ export default function App() {
       )}
 
       <SupportChatbot user={currentUser} profile={profile} />
+      <InstallPWA />
 
       {/* Logout Confirmation Modal */}
       <AnimatePresence>

@@ -77,13 +77,22 @@ export interface ScholarshipMatch {
   match: MatchResult;
 }
 
-export type ApplicationStatus = 'In Progress' | 'Applied' | 'Awarded' | 'Rejected';
+export type ApplicationStatus = 'Interested' | 'In Progress' | 'Applied' | 'Under Review' | 'Received Notification' | 'Awarded' | 'Rejected';
+
+export interface ApplicationDocument {
+  id: string;
+  name: string;
+  type: string;
+  data?: string; // base64 for local storage
+  uploadedAt: string;
+}
 
 export interface Application {
   scholarshipId: string;
   status: ApplicationStatus;
   updatedAt: string;
   notes?: string;
+  documents?: ApplicationDocument[];
 }
 
 export interface Reminder {

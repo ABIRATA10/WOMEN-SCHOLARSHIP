@@ -127,7 +127,7 @@ async function run() {
       max_family_income: null, gender: 'Female', min_percentage: 75, disability_required: 0, is_active: 1,
       application_portal_url: 'https://www.aauw.org/', deadline_month: 'November',
       description: 'Awarded for full-time study or research in the United States to women who are not U.S. citizens or permanent residents.'
-    }
+    },
     // Africa
     {
       id: 'mastercard-africa', name: 'Mastercard Foundation Scholars Program', provider: 'Mastercard Foundation', country: 'Multiple', region: 'Africa',

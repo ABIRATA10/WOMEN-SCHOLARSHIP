@@ -1,5 +1,5 @@
 import React from 'react';
-import { UserProfile, ScholarshipMatch, Application } from '../types';
+import { UserProfile, ScholarshipMatch, Application, ApplicationDocument } from '../types';
 import { User, GraduationCap, MapPin, Briefcase, BookOpen, Heart, Edit3, Save, ArrowLeft, CheckCircle2, Sparkles, FileText, Download, Phone } from 'lucide-react';
 import { motion, AnimatePresence } from 'motion/react';
 import { ProfileForm } from './ProfileForm';
@@ -17,8 +17,11 @@ interface UserProfileViewProps {
   onUpdateStatus: (id: string, status: any) => void;
   onUpdateNotes: (id: string, notes: string) => void;
   onDeleteApplication?: (id: string) => void;
+  onUploadDocument?: (id: string, document: ApplicationDocument) => void;
+  onDeleteDocument?: (id: string, documentId: string) => void;
   isLoading: boolean;
   onBack: () => void;
+  initialTab?: 'overview' | 'edit' | 'saved' | 'applications';
 }
 
 export const UserProfileView: React.FC<UserProfileViewProps> = ({
@@ -33,10 +36,13 @@ export const UserProfileView: React.FC<UserProfileViewProps> = ({
   onUpdateStatus,
   onUpdateNotes,
   onDeleteApplication,
+  onUploadDocument,
+  onDeleteDocument,
   isLoading,
-  onBack
+  onBack,
+  initialTab = 'overview'
 }) => {
-  const [activeTab, setActiveTab] = React.useState<'overview' | 'edit' | 'saved'>('overview');
+  const [activeTab, setActiveTab] = React.useState<'overview' | 'edit' | 'saved' | 'applications'>(initialTab);
   const [profileImageUrl, setProfileImageUrl] = React.useState<string | null>(profile.profileImageUrl || null);
   const fileInputRef = React.useRef<HTMLInputElement>(null);
 
@@ -153,6 +159,14 @@ export const UserProfileView: React.FC<UserProfileViewProps> = ({
           }`}
         >
           Edit Profile
+        </button>
+        <button
+          onClick={() => setActiveTab('applications')}
+          className={`px-6 py-2.5 rounded-xl text-[10px] font-black uppercase tracking-widest transition-all ${
+            activeTab === 'applications' ? 'bg-white text-emerald-600 shadow-sm' : 'text-slate-400 hover:text-slate-600'
+          }`}
+        >
+          Applications ({applications.length})
         </button>
         <button
           onClick={() => setActiveTab('saved')}
@@ -322,6 +336,57 @@ export const UserProfileView: React.FC<UserProfileViewProps> = ({
               isLoading={isLoading} 
               initialData={profile} 
             />
+          </motion.div>
+        )}
+
+        {activeTab === 'applications' && (
+          <motion.div
+            key="applications"
+            initial={{ opacity: 0, y: 10 }}
+            animate={{ opacity: 1, y: 0 }}
+            exit={{ opacity: 0, y: -10 }}
+            className="space-y-8"
+          >
+            <div className="flex items-center justify-between">
+              <h3 className="text-2xl font-black text-slate-900">My Applications</h3>
+              <p className="text-slate-400 font-bold text-sm">{applications.length} Items</p>
+            </div>
+
+            {applications.length > 0 ? (
+              <div className="grid grid-cols-1 md:grid-cols-2 gap-8">
+                {applications.map((app, index) => {
+                  const scholarship = results.find(r => r.scholarship.id === app.scholarshipId)?.scholarship;
+                  if (!scholarship) return null;
+                  const match = results.find(r => r.scholarship.id === app.scholarshipId)?.match;
+                  return (
+                    <ScholarshipCard
+                      key={`app-${app.scholarshipId}-${index}`}
+                      scholarship={scholarship}
+                      match={match || { scholarshipId: app.scholarshipId, matchScore: 0, reasoning: '' }}
+                      applicationStatus={app.status}
+                      onUpdateStatus={onUpdateStatus}
+                      onUpdateNotes={onUpdateNotes}
+                      onDeleteApplication={onDeleteApplication}
+                      initialNotes={app.notes}
+                      documents={app.documents}
+                      onUploadDocument={onUploadDocument}
+                      onDeleteDocument={onDeleteDocument}
+                      onApply={onApply}
+                      onSave={onSave}
+                      isSaved={savedIds.includes(app.scholarshipId)}
+                    />
+                  );
+                })}
+              </div>
+            ) : (
+              <div className="bg-white p-16 rounded-[3rem] text-center border border-slate-100 shadow-sm">
+                <div className="w-20 h-20 bg-slate-50 text-slate-300 rounded-3xl flex items-center justify-center mx-auto mb-6">
+                  <FileText size={40} />
+                </div>
+                <h3 className="text-2xl font-black text-slate-900 mb-2">No Applications</h3>
+                <p className="text-slate-500 font-medium mb-8">You haven't started any applications yet.</p>
+              </div>
+            )}
           </motion.div>
         )}
 

@@ -9,10 +9,10 @@ import { SupportChatbot } from './components/SupportChatbot';
 import { NotificationManager } from './components/NotificationManager';
 import { AdminPortal } from './components/AdminPortal';
 import { StudyAbroad } from './components/StudyAbroad';
-import { InstallPWA } from './components/InstallPWA';
+import { DownloadModal } from './components/DownloadModal';
 import { UserProfile, Scholarship, MatchResult, User as UserType, ScholarshipMatch, Application, ApplicationStatus, Reminder } from './types';
 import { findScholarships, smartScholarshipMatchEmbeddings } from './services/gemini';
-import { Sparkles, GraduationCap, Filter, Search, ArrowLeft, ArrowRight, Globe, MapPin, User, LogOut, LayoutDashboard, BookmarkCheck, Heart, Bot, AlertTriangle, Clock, RefreshCw, History, Bell, Menu, X, Plane } from 'lucide-react';
+import { Sparkles, GraduationCap, Filter, Search, ArrowLeft, ArrowRight, Globe, MapPin, User, LogOut, LayoutDashboard, BookmarkCheck, Heart, Bot, AlertTriangle, Clock, RefreshCw, History, Bell, Menu, X, Plane, Download } from 'lucide-react';
 import { motion, AnimatePresence } from 'motion/react';
 import { Logo } from './components/Logo';
 import { useLanguage } from './contexts/LanguageContext';
@@ -102,8 +102,21 @@ export default function App() {
   const [isMenuOpen, setIsMenuOpen] = React.useState(false);
   const [isAdminPortalOpen, setIsAdminPortalOpen] = React.useState(false);
   const [reminders, setReminders] = React.useState<Reminder[]>([]);
+  const [promptInstall, setPromptInstall] = React.useState<any>(null);
+  const [showInstallModal, setShowInstallModal] = React.useState(false);
+  const [profileInitialTab, setProfileInitialTab] = React.useState<'overview' | 'edit' | 'saved' | 'applications'>('overview');
 
   const isAdmin = currentUser?.email && import.meta.env.VITE_ADMIN_EMAILS?.split(',').map((e: string) => e.trim()).includes(currentUser.email);
+
+  // PWA Install Prompt Listener
+  React.useEffect(() => {
+    const handler = (e: Event) => {
+      e.preventDefault();
+      setPromptInstall(e);
+    };
+    window.addEventListener('beforeinstallprompt', handler);
+    return () => window.removeEventListener('beforeinstallprompt', handler);
+  }, []);
 
   // Persist data
   React.useEffect(() => {
@@ -377,6 +390,27 @@ export default function App() {
     });
   };
 
+  const handleUploadDocument = (id: string, document: ApplicationDocument) => {
+    setApplications(prev => {
+      const existing = prev.find(a => a.scholarshipId === id);
+      if (existing) {
+        const docs = existing.documents || [];
+        return prev.map(a => a.scholarshipId === id ? { ...a, documents: [...docs, document], updatedAt: new Date().toISOString() } : a);
+      }
+      return [...prev, { scholarshipId: id, status: 'Interested', updatedAt: new Date().toISOString(), documents: [document] }];
+    });
+  };
+
+  const handleDeleteDocument = (id: string, documentId: string) => {
+    setApplications(prev => {
+      const existing = prev.find(a => a.scholarshipId === id);
+      if (existing && existing.documents) {
+        return prev.map(a => a.scholarshipId === id ? { ...a, documents: existing.documents!.filter(d => d.id !== documentId), updatedAt: new Date().toISOString() } : a);
+      }
+      return prev;
+    });
+  };
+
   const handleDeleteApplication = (id: string) => {
     setApplications(prev => {
       const newApps = prev.filter(a => a.scholarshipId !== id);
@@ -588,6 +622,12 @@ export default function App() {
                   </button>
                 )}
                 <button 
+                  onClick={() => setShowInstallModal(true)}
+                  className="flex items-center gap-2 px-6 py-2.5 bg-blue-600 hover:bg-blue-700 text-white rounded-full text-xs font-black uppercase tracking-widest transition-all shadow-lg shadow-blue-200"
+                >
+                  <Download size={14} /> Download App
+                </button>
+                <button 
                   onClick={() => setShowLogoutConfirm(true)}
                   className="flex items-center gap-2 px-6 py-2.5 bg-slate-900 hover:bg-black text-white rounded-full text-xs font-black uppercase tracking-widest transition-all shadow-lg shadow-slate-200"
                 >
@@ -729,7 +769,13 @@ export default function App() {
                 </div>
               </div>
 
-              <div className="p-6 border-t border-slate-100 bg-slate-50">
+              <div className="p-6 border-t border-slate-100 bg-slate-50 flex flex-col gap-3">
+                <button 
+                  onClick={() => { setShowInstallModal(true); setIsMenuOpen(false); }}
+                  className="w-full flex items-center justify-center gap-3 px-6 py-4 bg-blue-600 text-white rounded-2xl text-xs font-black uppercase tracking-widest hover:bg-blue-700 transition-all shadow-md shadow-blue-200"
+                >
+                  <Download size={16} /> Download App
+                </button>
                 <button 
                   onClick={() => { setShowLogoutConfirm(true); setIsMenuOpen(false); }}
                   className="w-full flex items-center justify-center gap-3 px-6 py-4 bg-white border border-slate-200 text-slate-900 rounded-2xl text-xs font-black uppercase tracking-widest hover:bg-slate-100 transition-all shadow-sm"
@@ -774,7 +820,10 @@ export default function App() {
               
               <div className="flex justify-center mb-16">
                 <button 
-                  onClick={() => setView('Profile')}
+                  onClick={() => {
+                    setProfileInitialTab('edit');
+                    setView('Profile');
+                  }}
                   className="px-10 py-5 bg-blue-600 text-white rounded-[2rem] text-lg font-black uppercase tracking-widest shadow-2xl shadow-blue-200 hover:bg-blue-700 hover:scale-105 hover:-translate-y-1 transition-all flex items-center justify-center gap-3"
                 >
                   Welcome
@@ -965,6 +1014,8 @@ export default function App() {
                   onUpdateStatus={handleUpdateApplicationStatus}
                   onUpdateNotes={handleUpdateApplicationNotes}
                   onDeleteApplication={handleDeleteApplication}
+                  onUploadDocument={handleUploadDocument}
+                  onDeleteDocument={handleDeleteDocument}
                   isLoading={isLoading}
                   onBack={() => handleProfileSubmit(profile)}
                 />
@@ -1479,7 +1530,11 @@ export default function App() {
       )}
 
       <SupportChatbot user={currentUser} profile={profile} />
-      <InstallPWA />
+      <DownloadModal 
+        isOpen={showInstallModal} 
+        onClose={() => setShowInstallModal(false)} 
+        promptInstall={promptInstall} 
+      />
 
       {/* Logout Confirmation Modal */}
       <AnimatePresence>

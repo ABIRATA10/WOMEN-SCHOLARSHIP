@@ -1,6 +1,6 @@
 import React, { useState } from 'react';
-import { Scholarship, MatchResult, ApplicationStatus } from '../types';
-import { ExternalLink, Award, Calendar, Building2, CheckCircle2, AlertCircle, ChevronDown, ChevronUp, Info, Search, Share2, Check, Heart, Clock, Trophy, XCircle, Edit3, Save, X, Bell, MapPin, Trash2 } from 'lucide-react';
+import { Scholarship, MatchResult, ApplicationStatus, ApplicationDocument } from '../types';
+import { ExternalLink, Award, Calendar, Building2, CheckCircle2, AlertCircle, ChevronDown, ChevronUp, Info, Search, Share2, Check, Heart, Clock, Trophy, XCircle, Edit3, Save, X, Bell, MapPin, Trash2, Upload, FileText } from 'lucide-react';
 import { motion, AnimatePresence } from 'motion/react';
 import { useLanguage } from '../contexts/LanguageContext';
 
@@ -12,6 +12,9 @@ interface ScholarshipCardProps {
   onUpdateStatus?: (id: string, status: ApplicationStatus) => void;
   onUpdateNotes?: (id: string, notes: string) => void;
   initialNotes?: string;
+  documents?: ApplicationDocument[];
+  onUploadDocument?: (id: string, document: ApplicationDocument) => void;
+  onDeleteDocument?: (id: string, documentId: string) => void;
   onSave?: (id: string) => void;
   isSaved?: boolean;
   onView?: (id: string) => void;
@@ -27,6 +30,9 @@ export const ScholarshipCard: React.FC<ScholarshipCardProps> = ({
   onUpdateStatus,
   onUpdateNotes,
   initialNotes = '',
+  documents = [],
+  onUploadDocument,
+  onDeleteDocument,
   onSave, 
   isSaved,
   onView,
@@ -40,8 +46,32 @@ export const ScholarshipCard: React.FC<ScholarshipCardProps> = ({
   const [reminderTime, setReminderTime] = useState('');
   const [notes, setNotes] = useState(initialNotes);
   const [copied, setCopied] = useState(false);
+  const [showDocuments, setShowDocuments] = useState(false);
+  const fileInputRef = React.useRef<HTMLInputElement>(null);
   
   if (!scholarship) return null;
+
+  const handleFileUpload = (e: React.ChangeEvent<HTMLInputElement>) => {
+    const file = e.target.files?.[0];
+    if (file && onUploadDocument) {
+      if (file.size > 5 * 1024 * 1024) {
+        alert("File size should be less than 5MB");
+        return;
+      }
+      const reader = new FileReader();
+      reader.onloadend = () => {
+        const result = reader.result as string;
+        onUploadDocument(scholarship.id, {
+          id: Date.now().toString(),
+          name: file.name,
+          type: file.type,
+          data: result,
+          uploadedAt: new Date().toISOString()
+        });
+      };
+      reader.readAsDataURL(file);
+    }
+  };
 
   const isHighMatch = match && match.matchScore >= 80;
   const isMediumMatch = match && match.matchScore >= 50 && match.matchScore < 80;
@@ -491,7 +521,7 @@ export const ScholarshipCard: React.FC<ScholarshipCardProps> = ({
                     {applicationStatus} <ChevronDown size={14} />
                   </button>
                   <div className="absolute bottom-full left-0 w-full mb-2 bg-white rounded-2xl shadow-2xl border border-slate-100 overflow-hidden opacity-0 invisible group-hover/status:opacity-100 group-hover/status:visible transition-all z-50">
-                    {(['In Progress', 'Applied', 'Awarded', 'Rejected'] as ApplicationStatus[]).map((status) => (
+                    {(['Interested', 'In Progress', 'Applied', 'Under Review', 'Received Notification', 'Awarded', 'Rejected'] as ApplicationStatus[]).map((status) => (
                       <button
                         key={status}
                         onClick={(e) => {
@@ -517,12 +547,25 @@ export const ScholarshipCard: React.FC<ScholarshipCardProps> = ({
                   onClick={(e) => {
                     e.stopPropagation();
                     setShowNotes(!showNotes);
+                    setShowDocuments(false);
                   }}
                   className={`p-4 rounded-2xl border transition-all flex-1 flex items-center justify-center gap-2 ${showNotes ? 'bg-blue-50 border-blue-100 text-blue-600' : 'bg-slate-50 border-slate-100 text-slate-400 hover:text-slate-600'}`}
                   title="Add Notes"
                 >
                   <Edit3 size={18} />
-                  <span className="text-[10px] font-black uppercase tracking-widest">Notes</span>
+                  <span className="text-[10px] font-black uppercase tracking-widest hidden sm:inline">Notes</span>
+                </button>
+                <button
+                  onClick={(e) => {
+                    e.stopPropagation();
+                    setShowDocuments(!showDocuments);
+                    setShowNotes(false);
+                  }}
+                  className={`p-4 rounded-2xl border transition-all flex-1 flex items-center justify-center gap-2 ${showDocuments ? 'bg-emerald-50 border-emerald-100 text-emerald-600' : 'bg-slate-50 border-slate-100 text-slate-400 hover:text-slate-600'}`}
+                  title="Documents"
+                >
+                  <FileText size={18} />
+                  <span className="text-[10px] font-black uppercase tracking-widest hidden sm:inline">Docs ({documents.length})</span>
                 </button>
                 {onDeleteApplication && (
                   <button
@@ -578,6 +621,68 @@ export const ScholarshipCard: React.FC<ScholarshipCardProps> = ({
                   placeholder="Add deadlines, requirements, or progress notes..."
                   className="w-full h-24 p-4 bg-slate-50 border-none rounded-2xl text-xs text-slate-600 placeholder:text-slate-400 focus:ring-2 focus:ring-blue-500/20 resize-none font-medium"
                 />
+              </div>
+            </motion.div>
+          )}
+
+          {/* Documents Section */}
+          {showDocuments && applicationStatus && (
+            <motion.div
+              initial={{ height: 0, opacity: 0 }}
+              animate={{ height: 'auto', opacity: 1 }}
+              exit={{ height: 0, opacity: 0 }}
+              onClick={(e) => e.stopPropagation()}
+              className="overflow-hidden"
+            >
+              <div className="mt-4 pt-4 border-t border-slate-50">
+                <div className="flex items-center justify-between mb-3">
+                  <label className="text-[10px] font-black text-slate-400 uppercase tracking-widest">Documents</label>
+                  <button 
+                    onClick={() => setShowDocuments(false)}
+                    className="text-slate-400 hover:text-slate-600"
+                  >
+                    <X size={12} />
+                  </button>
+                </div>
+                
+                <div className="space-y-3">
+                  {documents.length > 0 ? (
+                    <div className="space-y-2">
+                      {documents.map((doc) => (
+                        <div key={doc.id} className="flex items-center justify-between p-3 bg-slate-50 rounded-xl border border-slate-100">
+                          <div className="flex items-center gap-2 overflow-hidden">
+                            <FileText size={14} className="text-blue-500 shrink-0" />
+                            <span className="text-xs font-bold text-slate-700 truncate">{doc.name}</span>
+                          </div>
+                          {onDeleteDocument && (
+                            <button 
+                              onClick={() => onDeleteDocument(scholarship.id, doc.id)}
+                              className="text-rose-400 hover:text-rose-600 p-1"
+                            >
+                              <Trash2 size={12} />
+                            </button>
+                          )}
+                        </div>
+                      ))}
+                    </div>
+                  ) : (
+                    <p className="text-xs text-slate-400 font-medium text-center py-4 bg-slate-50 rounded-xl border border-slate-100 border-dashed">No documents uploaded yet.</p>
+                  )}
+                  
+                  <button 
+                    onClick={() => fileInputRef.current?.click()}
+                    className="w-full py-3 bg-white border border-dashed border-slate-300 text-slate-600 rounded-xl text-xs font-bold hover:bg-slate-50 hover:border-blue-300 hover:text-blue-600 transition-all flex items-center justify-center gap-2"
+                  >
+                    <Upload size={14} /> Upload Document
+                  </button>
+                  <input 
+                    type="file" 
+                    ref={fileInputRef} 
+                    onChange={handleFileUpload} 
+                    className="hidden" 
+                    accept=".pdf,.doc,.docx,.txt,.jpg,.jpeg,.png"
+                  />
+                </div>
               </div>
             </motion.div>
           )}
